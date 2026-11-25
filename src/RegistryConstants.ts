@@ -2,10 +2,17 @@ import {Data} from 'phaser';
 
 export default class RegistryConstants {
     public static readonly Keys = Object.freeze({
-        PLAYER_SCORE: 'playerScore'
+        PLAYER_SCORE: 'playerScore',
+        PLAYER_LEVEL: 'playerLevel',
+        // XP gathered since the last level up
+        PLAYER_XP: 'playerXp',
+        // XP needed to reach the next level
+        PLAYER_XP_TO_NEXT_LEVEL: 'playerXpToNextLevel',
     } as const);
 
     public static readonly Events = Object.freeze({
-        PLAYER_SCORE_CHANGE: Data.Events.CHANGE_DATA_KEY + RegistryConstants.Keys.PLAYER_SCORE
+        PLAYER_SCORE_CHANGE: Data.Events.CHANGE_DATA_KEY + RegistryConstants.Keys.PLAYER_SCORE,
+        PLAYER_LEVEL_CHANGE: Data.Events.CHANGE_DATA_KEY + RegistryConstants.Keys.PLAYER_LEVEL,
+        PLAYER_XP_CHANGE: Data.Events.CHANGE_DATA_KEY + RegistryConstants.Keys.PLAYER_XP,
     } as const);
 }

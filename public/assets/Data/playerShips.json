@@ -1,6 +1,6 @@
 {
   "1": {
-    "movementSpeed": 0.6,
+    "movementSpeed": 0.55,
     "turnSpeed": 300,
     "texture": "playerShip1_blue",
     "body": {
@@ -10,7 +10,7 @@
     }
   },
   "2": {
-    "movementSpeed": 0.9,
+    "movementSpeed": 0.7,
     "turnSpeed": 230,
     "texture": "playerShip2_blue",
     "body": {
@@ -20,7 +20,7 @@
     }
   },
   "3": {
-    "movementSpeed": 1.2,
+    "movementSpeed": 0.85,
     "turnSpeed": 170,
     "texture": "playerShip3_blue",
     "body": {

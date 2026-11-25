@@ -1,0 +1,19 @@
+{
+  "health": 3,
+  "hitInvulnerability": 640,
+  "shootDelay": 500,
+  "multishotAngle": 10,
+  "bullet": {
+    "width": 12,
+    "height": 4,
+    "color": "#ffe066",
+    "speed": 1024,
+    "damage": 1
+  },
+  "turret": {
+    "color": "#ffe066",
+    "baseRadius": 14,
+    "barrelLength": 56,
+    "barrelWidth": 8
+  }
+}

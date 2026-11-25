@@ -4,15 +4,25 @@ import Bullet from "../entities/Bullet.ts";
 import Enemy from "../entities/Enemy.ts";
 import Entity from "../entities/Entity.ts";
 import Player from "../entities/Player.ts";
-import SineEnemy from "../entities/SineEnemy.ts";
-import type {SineEnemyData} from "../gameData/SineEnemyData.ts";
+import ConfigurableEnemy from "../entities/ConfigurableEnemy.ts";
+import Boss from "../entities/Boss.ts";
+import type {BossData} from "../gameData/BossData.ts";
+import type {BossType} from "../gameData/ProgressionData.ts";
+import type {EnemyData} from "../gameData/EnemyData.ts";
+import type {ConfigurableEnemyData} from "../gameData/ConfigurableEnemyData.ts";
+import type {SpawnData} from "../gameData/SpawnData.ts";
+import type {WorldData} from "../gameData/WorldData.ts";
 import GroupUtils from "../utils/GroupUtils.ts";
 import GameConstants from "../GameConstants.ts";
 import RegistryConstants from "../RegistryConstants.ts";
+import ProgressionManager from "./ProgressionManager.ts";
 
 export default class EntityManager extends Plugins.ScenePlugin {
     public static readonly PLUGIN_KEY: string = 'EntityManager';
     public static readonly MAPPING_NAME: string = 'entityManager';
+
+    // Distance from the boss where its summoned minions appear
+    private static readonly SUMMON_DISTANCE: number = 260;
 
     // noinspection JSUnusedGlobalSymbols
     private readonly bulletGroupConfig = {
@@ -24,12 +34,19 @@ export default class EntityManager extends Plugins.ScenePlugin {
         }
     }
 
+    private _worldData: WorldData;
+    // Gives how hard the game currently is: spawn rate, enemy speed and health
+    private _progression: ProgressionManager;
     private _player: Player;
     private _playerBullets: Physics.Arcade.Group;
     private _enemies: Physics.Arcade.Group;
+    private _enemyData: EnemyData;
     private _enemyBullets: Physics.Arcade.Group;
-    private _sineEnemies: Physics.Arcade.Group;
-    private _sineEnemyData: SineEnemyData;
+    // One pooled group per ConfigurableEnemy type (sine, speed, tank...), by data key
+    private _configurableEnemyGroups: Map<string, Physics.Arcade.Group>;
+    private _bossGroups: Record<BossType, Physics.Arcade.Group>;
+    // Regular enemies stop coming during a boss fight
+    private _areRegularSpawnsPaused: boolean = false;
 
     constructor(scene: Scene, pluginManager: Plugins.PluginManager) {
         super(scene, pluginManager, EntityManager.PLUGIN_KEY);
@@ -47,7 +64,9 @@ export default class EntityManager extends Plugins.ScenePlugin {
         this._playerBullets = this.scene!.physics.add.group(this.bulletGroupConfig);
         GroupUtils.populate(64, this._playerBullets);
 
-        this._player = new Player(this.scene!, this.scene!.cameras.main.centerX, this.scene!.cameras.main.height - 128);
+        this._worldData = this.scene!.cache.json.get(GameConstants.DataKeys.WORLD) as WorldData;
+
+        this._player = new Player(this.scene!, this._worldData.width / 2, this._worldData.height / 2);
         this._player.init(this._playerBullets);
 
         console.log("[EntityManager] Player spawned");
@@ -57,58 +76,136 @@ export default class EntityManager extends Plugins.ScenePlugin {
         return this._player;
     }
 
-    public initEnemies(): Physics.Arcade.Group {
+    public initEnemies(progression: ProgressionManager): Physics.Arcade.Group {
+        this._progression = progression;
+
         this._enemyBullets = this.scene!.physics.add.group(this.bulletGroupConfig);
         GroupUtils.populate(256, this._enemyBullets);
+
+        this._enemyData = this.scene!.cache.json.get(GameConstants.DataKeys.ENEMY) as EnemyData;
 
         this._enemies = this.scene!.physics.add.group({
             classType: Enemy,
             defaultKey: 'sprites',
             defaultFrame: 'ufoRed',
             createCallback: (enemy) => {
-                (enemy as Enemy).init(this._enemyBullets);
+                (enemy as Enemy).init(this._enemyBullets, this._enemyData, this._player,
+                    this._worldData.enemies.despawnDistance);
+                this.listenToEnemyDeath(enemy as Entity, this._enemyData.xp);
             }
         });
 
         // Spawn enemies indefinitely
-        this.scene!.time.addEvent({
-            delay: 1500,
-            callback: this.spawnEnemy,
-            callbackScope: this,
-            loop: true
-        });
+        this.scheduleSpawn(this._enemyData.spawn.delay,
+            () => this.spawnFromGroup(this._enemies, this._enemyData.spawn));
 
-        this.initSineEnemies();
+        this._configurableEnemyGroups = new Map(GameConstants.CONFIGURABLE_ENEMY_KEYS
+            .map(key => [key, this.initConfigurableEnemies(key)]));
+
+        this._bossGroups = {
+            miniBoss: this.initBosses(GameConstants.DataKeys.MINI_BOSS),
+            boss: this.initBosses(GameConstants.DataKeys.BOSS),
+        };
+
+        this._areRegularSpawnsPaused = false;
+        this.scene!.events.on(GameConstants.Events.BOSS_SUMMON_EVENT, this.onBossSummon, this);
+        this.scene!.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            this.scene!.events.off(GameConstants.Events.BOSS_SUMMON_EVENT, this.onBossSummon, this);
+        });
 
         console.log("[EntityManager] Enemies initialized");
 
         return this._enemies;
     }
 
-    private initSineEnemies() {
-        this._sineEnemyData = this.scene!.cache.json.get(GameConstants.DataKeys.SINE_ENEMY) as SineEnemyData;
+    private initBosses(dataKey: string): Physics.Arcade.Group {
+        const data = this.scene!.cache.json.get(dataKey) as BossData;
 
-        this._sineEnemies = this.scene!.physics.add.group({
-            classType: SineEnemy,
+        return this.scene!.physics.add.group({
+            classType: Boss,
             defaultKey: 'sprites',
-            defaultFrame: this._sineEnemyData.texture,
+            defaultFrame: data.texture,
+            createCallback: (boss) => {
+                (boss as Boss).init(this._enemyBullets, data, this._player);
+                this.listenToEnemyDeath(boss as Entity, data.xp);
+                (boss as Boss).getComponent(Health)?.on(Health.DEATH_EVENT, () => {
+                    this.game!.events.emit(GameConstants.Events.BOSS_DEFEATED_EVENT, boss);
+                });
+            }
+        });
+    }
+
+    // Brings a boss just outside the screen. appearance: how many times this boss type already showed up
+    public spawnBoss(type: BossType, appearance: number): Boss {
+        const boss = this._bossGroups[type].get() as Boss;
+        const spawnPosition: Phaser.Math.Vector2 = this.getSpawnPositionAroundPlayer();
+        boss.enable(spawnPosition.x, spawnPosition.y, appearance);
+
+        this.game!.events.emit(GameConstants.Events.BOSS_SPAWNED_EVENT, boss);
+
+        return boss;
+    }
+
+    public setRegularSpawnsPaused(paused: boolean) {
+        this._areRegularSpawnsPaused = paused;
+    }
+
+    // Minions called by a boss appear around it, whatever the spawn limits
+    private onBossSummon(enemyKey: string, count: number, x: number, y: number) {
+        const group = this._configurableEnemyGroups.get(enemyKey);
+        if (!group)
+            return;
+
+        for (let i: number = 0; i < count; i++) {
+            const enemy = group.get() as ConfigurableEnemy;
+            if (!enemy)
+                return;
+
+            const offset: Phaser.Math.Vector2 = new Phaser.Math.Vector2(1, 0)
+                .rotate(Phaser.Math.PI2 * i / count).scale(EntityManager.SUMMON_DISTANCE);
+            enemy.enable(x + offset.x, y + offset.y, this._progression.getEnemyDifficulty());
+        }
+    }
+
+    private initConfigurableEnemies(dataKey: string): Physics.Arcade.Group {
+        const data = this.scene!.cache.json.get(dataKey) as ConfigurableEnemyData;
+
+        const group: Physics.Arcade.Group = this.scene!.physics.add.group({
+            classType: ConfigurableEnemy,
+            defaultKey: 'sprites',
+            defaultFrame: data.texture,
             createCallback: (enemy) => {
-                (enemy as SineEnemy).init(this._enemyBullets, this._sineEnemyData);
+                (enemy as ConfigurableEnemy).init(this._enemyBullets, data, this._player,
+                    this._worldData.enemies.despawnDistance);
+                this.listenToEnemyDeath(enemy as Entity, data.xp);
             }
         });
 
-        this.scene!.time.addEvent({
-            delay: this._sineEnemyData.spawn.delay,
-            callback: this.spawnSineEnemy,
-            callbackScope: this,
-            loop: true
+        this.scheduleSpawn(data.spawn.delay, () => this.spawnFromGroup(group, data.spawn));
+
+        return group;
+    }
+
+    // Calls spawn again and again. The delay is computed before each spawn, so it shrinks as the game gets harder
+    private scheduleSpawn(baseDelay: number, spawn: () => void) {
+        this.scene!.time.delayedCall(this._progression.getSpawnDelay(baseDelay), () => {
+            spawn();
+            this.scheduleSpawn(baseDelay, spawn);
+        });
+    }
+
+    // Pooled enemies are created once: listen once to each of their deaths, for their whole life
+    private listenToEnemyDeath(enemy: Entity, xp: number) {
+        enemy.getComponent(Health)?.on(Health.DEATH_EVENT, () => {
+            this.scene!.events.emit(GameConstants.Events.ENEMY_KILLED_EVENT, xp);
         });
     }
 
     public initGroupCollisions() {
-        const enemyGroups: Physics.Arcade.Group[] = [this._enemies, this._sineEnemies];
+        const enemyGroups: Physics.Arcade.Group[] = [this._enemies, ...this._configurableEnemyGroups.values()];
+        const bossGroups: Physics.Arcade.Group[] = Object.values(this._bossGroups);
 
-        this.scene!.physics.add.overlap(this._playerBullets, enemyGroups, (bullet, enemy) => {
+        this.scene!.physics.add.overlap(this._playerBullets, [...enemyGroups, ...bossGroups], (bullet, enemy) => {
             this.scene!.registry.inc(RegistryConstants.Keys.PLAYER_SCORE);
 
             (bullet as Bullet).disable();
@@ -134,44 +231,46 @@ export default class EntityManager extends Plugins.ScenePlugin {
             this.scene?.cameras.main.shake(100, 0.03);
         });
 
+        // A boss survives touching the player, only the player gets hurt
+        this.scene!.physics.add.overlap(this._player, bossGroups, (player, boss) => {
+            (player as Player).getComponent(Health)?.damage((boss as Boss).bossData.contactDamage);
+
+            this.scene?.cameras.main.shake(100, 0.03);
+        });
+
         console.log("[EntityManager] Group collisions initialized");
     }
 
-    private spawnEnemy() {
-        if (this._enemies.countActive(true) >= 5) {
+    // Takes an enemy from its pool and places it around the player, if this type is unlocked and not too many are alive
+    private spawnFromGroup(group: Physics.Arcade.Group, spawn: SpawnData) {
+        if (this._areRegularSpawnsPaused || this._progression.level < spawn.fromLevel) {
             return;
         }
 
-        const enemy = this._enemies.get() as Enemy;
+        if (group.countActive(true) >= this._progression.getMaxActive(spawn.maxActive)) {
+            return;
+        }
+
+        const enemy = group.get() as Enemy | ConfigurableEnemy;
         if (!enemy) {
             return;
         }
 
-        enemy.enable(Phaser.Math.Between(64, this.scene!.cameras.main.width - 64), 0);
+        const spawnPosition: Phaser.Math.Vector2 = this.getSpawnPositionAroundPlayer();
+        enemy.enable(spawnPosition.x, spawnPosition.y, this._progression.getEnemyDifficulty());
 
         this.game!.events.emit(GameConstants.Events.ENEMY_SPAWNED_EVENT, enemy);
-
-        console.log("[EntityManager] Enemy spawned");
     }
 
-    private spawnSineEnemy() {
-        if (this._sineEnemies.countActive(true) >= this._sineEnemyData.spawn.maxActive) {
-            return;
-        }
+    // Random point on a circle around the player, just outside the screen corners: enemies come from every direction
+    private getSpawnPositionAroundPlayer(): Phaser.Math.Vector2 {
+        // Divide by the zoom: when the camera zooms out, it shows more of the world
+        const camera = this.scene!.cameras.main;
+        const spawnDistance: number = Math.hypot(camera.width, camera.height) / 2 / camera.zoom
+            + this._worldData.enemies.spawnMargin;
+        const spawnRotation: number = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
 
-        const enemy = this._sineEnemies.get() as SineEnemy;
-        if (!enemy) {
-            return;
-        }
-
-        // Spawn far enough from the edges for the whole sine wave to stay on screen
-        const screenWidth: number = this.scene!.cameras.main.width;
-        const reach: number = enemy.horizontalReach;
-        const x: number = reach * 2 < screenWidth
-            ? Phaser.Math.FloatBetween(reach, screenWidth - reach)
-            : screenWidth / 2;
-        enemy.enable(x, 0);
-
-        this.game!.events.emit(GameConstants.Events.ENEMY_SPAWNED_EVENT, enemy);
+        return new Phaser.Math.Vector2(1, 0).rotate(spawnRotation).scale(spawnDistance)
+            .add(new Phaser.Math.Vector2(this._player.x, this._player.y));
     }
 }

@@ -1,24 +1,30 @@
-import type {BulletData} from '../gameData/BulletData.ts';
+import {toBulletData} from '../gameData/BulletData.ts';
+import type {EnemyData} from '../gameData/EnemyData.ts';
+import type {EnemyDifficulty} from '../gameData/ProgressionData.ts';
 import Entity from './Entity.ts';
 import Health from "../components/Health.ts";
 import Movement from "../components/Movement.ts";
+import Steering from "../components/Steering.ts";
 import Weapon from "../components/Weapon.ts";
 
 export default class Enemy extends Entity {
-    private readonly _bulletData: BulletData = {
-        width: 12,
-        height: 12,
-        color: 0xf25f5c,
-        speed: 512,
-        damage: 1,
-    };
+    private static readonly HIT_SLOWDOWN_FACTOR: number = 0.5;
+
+    private _data: EnemyData;
+    private _target: Entity;
+    private _despawnDistance: number;
     private _shootTimerConfig: Phaser.Types.Time.TimerEventConfig;
     private _shootTimer: Phaser.Time.TimerEvent;
 
-    public init(bulletsGroup: Phaser.Physics.Arcade.Group) {
-        this.addComponent(new Health(1, this));
-        this.addComponent(new Movement(0.2));
-        this.addComponent(new Weapon(bulletsGroup, this._bulletData));
+    public init(bulletsGroup: Phaser.Physics.Arcade.Group, data: EnemyData, target: Entity, despawnDistance: number) {
+        this._data = data;
+        this._target = target;
+        this._despawnDistance = despawnDistance;
+
+        this.addComponent(new Health(data.health, this));
+        this.addComponent(new Movement(data.movement.speed));
+        this.addComponent(new Steering(data.movement.turnSpeed));
+        this.addComponent(new Weapon(bulletsGroup, toBulletData(data.shoot.bullet)));
 
         // Listen once per enemy, not on every enable(): pooled enemies are reused many times
         const health = this.getComponent(Health);
@@ -40,10 +46,8 @@ export default class Enemy extends Entity {
             });
         });
 
-        this.angle = 90;
-
         this._shootTimerConfig = {
-            delay: Phaser.Math.Between(2000, 3000),
+            delay: Phaser.Math.Between(data.shoot.minDelay, data.shoot.maxDelay),
             callback: this.shoot,
             callbackScope: this,
             loop: true
@@ -66,12 +70,17 @@ export default class Enemy extends Entity {
         this.arcadeBody.setCircle(this.displayWidth / 2);
     }
 
-    public enable(x: number, y: number) {
-        this.enableBody(true, x, y - this.displayHeight, true, true);
+    public enable(x: number, y: number, difficulty: EnemyDifficulty) {
+        this.enableBody(true, x, y, true, true);
+        this.rotation = Phaser.Math.Angle.Between(x, y, this._target.x, this._target.y);
         this._shootTimer.reset(this._shootTimerConfig);
+
+        // The pooled enemy may come from an easier time of the game: apply the current difficulty
+        this.getComponent(Movement)?.setSpeed(this._data.movement.speed * difficulty.speedMultiplier);
 
         // Restore health, in case the enemy is reused from the pool, without emitting events
         const health = this.getComponent(Health);
+        health?.setMax(this._data.health + difficulty.healthBonus);
         health?.heal(health!.max, false);
     }
 
@@ -96,14 +105,15 @@ export default class Enemy extends Entity {
     preUpdate(timeSinceLaunch: number, deltaTime: number) {
         super.preUpdate(timeSinceLaunch, deltaTime)
 
-        // Destroy entities when out of screen
-        if (this.y > this.scene.cameras.main.height + this.displayHeight) {
+        // Recycle enemies left far behind
+        if (Phaser.Math.Distance.Between(this.x, this.y, this._target.x, this._target.y) > this._despawnDistance) {
             this.disable();
+            return;
         }
 
-        if (!this.isTinted)
-            this.getComponent(Movement)?.moveVertically(this, deltaTime);
-        else
-            this.getComponent(Movement)?.moveVertically(this, deltaTime * 0.5);
+        // Chase the target, slowed down while flashing white after a hit
+        const moveDeltaTime: number = this.isTinted ? deltaTime * Enemy.HIT_SLOWDOWN_FACTOR : deltaTime;
+        this.getComponent(Steering)?.turnToward(this, this._target.x, this._target.y, moveDeltaTime);
+        this.getComponent(Movement)?.moveForward(this, moveDeltaTime);
     }
 }

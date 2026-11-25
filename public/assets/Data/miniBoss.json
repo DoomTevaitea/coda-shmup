@@ -1,0 +1,46 @@
+{
+  "name": "Warden",
+  "texture": "ufoRed",
+  "tint": "#e040fb",
+  "scale": 3.5,
+  "health": 60,
+  "healthGrowthPerAppearance": 0.6,
+  "xp": 15,
+  "contactDamage": 1,
+  "zoomMultiplier": 0.75,
+  "movement": {
+    "speed": 0.25,
+    "turnSpeed": 60
+  },
+  "bullet": {
+    "width": 16,
+    "height": 16,
+    "color": "#e040fb",
+    "speed": 380,
+    "damage": 1
+  },
+  "attackDelay": 1400,
+  "attacks": [
+    {
+      "type": "spiral",
+      "waves": 4,
+      "bulletsPerWave": 12,
+      "waveDelay": 240,
+      "rotationPerWave": 15
+    },
+    {
+      "type": "dash",
+      "warningDuration": 800,
+      "duration": 650,
+      "speed": 1.5
+    },
+    {
+      "type": "laser",
+      "color": "#e040fb",
+      "warningDuration": 1000,
+      "fireDuration": 700,
+      "width": 36,
+      "sweepAngle": 0
+    }
+  ]
+}

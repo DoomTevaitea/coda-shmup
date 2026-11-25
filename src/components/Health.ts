@@ -8,7 +8,7 @@ export default class Health extends Phaser.Events.EventEmitter implements ICompo
     public static readonly DEATH_EVENT: string = 'death';
 
     private _current: number;
-    private readonly _max: number;
+    private _max: number;
     private readonly _entity: Entity;
 
     public get current(): number {
@@ -25,6 +25,13 @@ export default class Health extends Phaser.Events.EventEmitter implements ICompo
         this._current = value;
         this._max = value;
         this._entity = entity;
+    }
+
+    // Changes the maximum health, e.g. to make pooled enemies tougher as the game gets harder.
+    // Current health is kept within the new maximum
+    public setMax(max: number) {
+        this._max = max;
+        this._current = Math.min(this._current, max);
     }
 
     public damage(amount: number, emitEvents: boolean = true): void {
