@@ -82,6 +82,12 @@
       "description": "+1 bullet per shot per level",
       "maxLevel": 10,
       "valuePerLevel": 1
+    },
+    "bulletSpeed": {
+      "name": "Velocity",
+      "description": "+12% bullet speed per level",
+      "maxLevel": 8,
+      "valuePerLevel": 0.12
     }
   },
   "difficultyPerLevel": {

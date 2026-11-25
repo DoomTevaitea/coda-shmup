@@ -32,6 +32,7 @@ export default class BonusIcons {
             speed: BonusIcons.drawEngine,
             damage: BonusIcons.drawCannon,
             multishot: BonusIcons.drawBullets,
+            bulletSpeed: BonusIcons.drawFastBullet,
             health: BonusIcons.drawHeart,
         };
 
@@ -128,6 +129,19 @@ export default class BonusIcons {
                 .fillStyle(BonusIcons.BULLET_CASE_COLOR)
                 .fillRect(offsetX, 86, 30, 22);
         }
+    }
+
+    // Bullet speed: a bullet flying right, with speed lines behind it
+    private static drawFastBullet(graphics: GameObjects.Graphics) {
+        graphics.fillStyle(BonusIcons.METAL_COLOR, 0.8)
+            .fillRect(10, 50, 34, 6)
+            .fillRect(18, 66, 26, 6)
+            .fillRect(10, 82, 34, 6)
+            .fillStyle(BonusIcons.BULLET_CASE_COLOR)
+            .fillRect(50, 54, 22, 30)
+            .fillStyle(BonusIcons.BULLET_COLOR)
+            .fillRect(70, 54, 26, 30)
+            .fillCircle(96, 69, 15);
     }
 
     // Life: a heart, two circles on top of a triangle

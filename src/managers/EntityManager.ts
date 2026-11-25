@@ -11,6 +11,7 @@ import type {BossType} from "../gameData/ProgressionData.ts";
 import type {EnemyData} from "../gameData/EnemyData.ts";
 import type {ConfigurableEnemyData} from "../gameData/ConfigurableEnemyData.ts";
 import type {SpawnData} from "../gameData/SpawnData.ts";
+import type {MinimapPoint} from "../gameData/MinimapData.ts";
 import type {WorldData} from "../gameData/WorldData.ts";
 import GroupUtils from "../utils/GroupUtils.ts";
 import GameConstants from "../GameConstants.ts";
@@ -144,6 +145,16 @@ export default class EntityManager extends Plugins.ScenePlugin {
         this.game!.events.emit(GameConstants.Events.BOSS_SPAWNED_EVENT, boss);
 
         return boss;
+    }
+
+    // Positions of every alive regular enemy, bosses excluded
+    public getActiveEnemyPositions(): MinimapPoint[] {
+        const positions: MinimapPoint[] = [];
+        for (const group of [this._enemies, ...this._configurableEnemyGroups.values()]) {
+            group.getMatching('active', true).forEach((enemy: Entity) => positions.push({x: enemy.x, y: enemy.y}));
+        }
+
+        return positions;
     }
 
     public setRegularSpawnsPaused(paused: boolean) {

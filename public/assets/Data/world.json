@@ -15,5 +15,10 @@
   "enemies": {
     "spawnMargin": 200,
     "despawnDistance": 4500
+  },
+  "minimap": {
+    "size": 240,
+    "margin": 32,
+    "refreshDelay": 100
   }
 }

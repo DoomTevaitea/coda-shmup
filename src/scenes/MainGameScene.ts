@@ -11,6 +11,7 @@ import Boss from "../entities/Boss.ts";
 import type {WorldData} from "../gameData/WorldData.ts";
 import type {BonusChoice, PlayerBonuses} from "../gameData/ProgressionData.ts";
 import type {LevelUpSceneData} from "./LevelUpScene.ts";
+import type {MinimapPoint, MinimapSnapshot} from "../gameData/MinimapData.ts";
 
 export default class MainGameScene extends Scene {
     private static readonly BG_TILE_SCALE: number = 2;
@@ -25,6 +26,7 @@ export default class MainGameScene extends Scene {
     private player: Player;
     // The boss currently fought, null between boss fights
     private boss: Boss | null = null;
+    private planetPosition: MinimapPoint;
     private saveManager: SaveManager;
     private entityManager: EntityManager;
     private progressionManager: ProgressionManager;
@@ -50,7 +52,8 @@ export default class MainGameScene extends Scene {
         const worldWidth: number = this.worldData.width;
         const worldHeight: number = this.worldData.height;
 
-        this.add.image(worldWidth / 3, worldHeight / 3, 'planet');
+        this.planetPosition = {x: worldWidth / 3, y: worldHeight / 3};
+        this.add.image(this.planetPosition.x, this.planetPosition.y, 'planet');
 
         // Show the world limits, the player can't fly past them
         this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
@@ -84,6 +87,14 @@ export default class MainGameScene extends Scene {
         this.entityManager.initEnemies(this.progressionManager);
         this.entityManager.initGroupCollisions();
 
+        // The UI minimap only needs a few refreshes per second
+        this.time.addEvent({
+            delay: this.worldData.minimap.refreshDelay,
+            callback: this.sendMinimapSnapshot,
+            callbackScope: this,
+            loop: true
+        });
+
         // Killing enemies gives XP, enough XP gives a level and a bonus to choose, some levels bring a boss
         this.events.on(GameConstants.Events.ENEMY_KILLED_EVENT, this.onEnemyKilled, this);
         this.game.events.on(GameConstants.Events.BONUS_CHOSEN_EVENT, this.onBonusChosen, this);
@@ -104,6 +115,22 @@ export default class MainGameScene extends Scene {
         this.registry.set(RegistryConstants.Keys.PLAYER_SCORE, 0);
 
         console.log("MainGameScene created");
+    }
+
+    // Tells the UI where everything is. The game logic doesn't know how the UI draws it
+    private sendMinimapSnapshot() {
+        const view: Phaser.Geom.Rectangle = this.cameras.main.worldView;
+        const snapshot: MinimapSnapshot = {
+            worldWidth: this.worldData.width,
+            worldHeight: this.worldData.height,
+            player: {x: this.player.x, y: this.player.y, rotation: this.player.rotation},
+            view: {x: view.x, y: view.y, width: view.width, height: view.height},
+            enemies: this.entityManager.getActiveEnemyPositions(),
+            boss: this.boss ? {x: this.boss.x, y: this.boss.y, color: this.boss.bossData.tint} : null,
+            landmarks: [this.planetPosition]
+        };
+
+        this.game.events.emit(GameConstants.Events.MINIMAP_UPDATE_EVENT, snapshot);
     }
 
     private onEnemyKilled(xp: number) {
