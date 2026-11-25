@@ -2,7 +2,10 @@ import {GameObjects, Plugins, Physics, Scene} from "phaser";
 import Health from "../components/Health.ts";
 import Bullet from "../entities/Bullet.ts";
 import Enemy from "../entities/Enemy.ts";
+import Entity from "../entities/Entity.ts";
 import Player from "../entities/Player.ts";
+import SineEnemy from "../entities/SineEnemy.ts";
+import type {SineEnemyData} from "../gameData/SineEnemyData.ts";
 import GroupUtils from "../utils/GroupUtils.ts";
 import GameConstants from "../GameConstants.ts";
 import RegistryConstants from "../RegistryConstants.ts";
@@ -25,6 +28,8 @@ export default class EntityManager extends Plugins.ScenePlugin {
     private _playerBullets: Physics.Arcade.Group;
     private _enemies: Physics.Arcade.Group;
     private _enemyBullets: Physics.Arcade.Group;
+    private _sineEnemies: Physics.Arcade.Group;
+    private _sineEnemyData: SineEnemyData;
 
     constructor(scene: Scene, pluginManager: Plugins.PluginManager) {
         super(scene, pluginManager, EntityManager.PLUGIN_KEY);
@@ -73,17 +78,41 @@ export default class EntityManager extends Plugins.ScenePlugin {
             loop: true
         });
 
+        this.initSineEnemies();
+
         console.log("[EntityManager] Enemies initialized");
 
         return this._enemies;
     }
 
+    private initSineEnemies() {
+        this._sineEnemyData = this.scene!.cache.json.get(GameConstants.DataKeys.SINE_ENEMY) as SineEnemyData;
+
+        this._sineEnemies = this.scene!.physics.add.group({
+            classType: SineEnemy,
+            defaultKey: 'sprites',
+            defaultFrame: this._sineEnemyData.texture,
+            createCallback: (enemy) => {
+                (enemy as SineEnemy).init(this._enemyBullets, this._sineEnemyData);
+            }
+        });
+
+        this.scene!.time.addEvent({
+            delay: this._sineEnemyData.spawn.delay,
+            callback: this.spawnSineEnemy,
+            callbackScope: this,
+            loop: true
+        });
+    }
+
     public initGroupCollisions() {
-        this.scene!.physics.add.overlap(this._playerBullets, this._enemies, (bullet, enemy) => {
+        const enemyGroups: Physics.Arcade.Group[] = [this._enemies, this._sineEnemies];
+
+        this.scene!.physics.add.overlap(this._playerBullets, enemyGroups, (bullet, enemy) => {
             this.scene!.registry.inc(RegistryConstants.Keys.PLAYER_SCORE);
 
             (bullet as Bullet).disable();
-            (enemy as Enemy).getComponent(Health)?.damage((bullet as Bullet).damage);
+            (enemy as Entity).getComponent(Health)?.damage((bullet as Bullet).damage);
         });
 
         this.scene!.physics.add.overlap(this._player, this._enemyBullets, (player, bullet) => {
@@ -93,10 +122,10 @@ export default class EntityManager extends Plugins.ScenePlugin {
             this.scene?.cameras.main.shake(100, 0.01);
         });
 
-        this.scene!.physics.add.overlap(this._player, this._enemies, (player, enemy) => {
+        this.scene!.physics.add.overlap(this._player, enemyGroups, (player, enemy) => {
             this.scene!.registry.inc(RegistryConstants.Keys.PLAYER_SCORE);
 
-            const enemyHealth = (enemy as Enemy).getComponent(Health);
+            const enemyHealth = (enemy as Entity).getComponent(Health);
             enemyHealth?.damage(enemyHealth?.max);
 
             const playerHealth = (player as Player).getComponent(Health);
@@ -123,5 +152,26 @@ export default class EntityManager extends Plugins.ScenePlugin {
         this.game!.events.emit(GameConstants.Events.ENEMY_SPAWNED_EVENT, enemy);
 
         console.log("[EntityManager] Enemy spawned");
+    }
+
+    private spawnSineEnemy() {
+        if (this._sineEnemies.countActive(true) >= this._sineEnemyData.spawn.maxActive) {
+            return;
+        }
+
+        const enemy = this._sineEnemies.get() as SineEnemy;
+        if (!enemy) {
+            return;
+        }
+
+        // Spawn far enough from the edges for the whole sine wave to stay on screen
+        const screenWidth: number = this.scene!.cameras.main.width;
+        const reach: number = enemy.horizontalReach;
+        const x: number = reach * 2 < screenWidth
+            ? Phaser.Math.FloatBetween(reach, screenWidth - reach)
+            : screenWidth / 2;
+        enemy.enable(x, 0);
+
+        this.game!.events.emit(GameConstants.Events.ENEMY_SPAWNED_EVENT, enemy);
     }
 }
