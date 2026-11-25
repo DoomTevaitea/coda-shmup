@@ -12,12 +12,12 @@ export type LevelUpSceneData = {
 export default class LevelUpScene extends Scene {
     private static readonly OVERLAY_COLOR: number = 0x05030a;
     private static readonly OVERLAY_ALPHA: number = 0.8;
-    private static readonly TITLE_Y: number = 280;
-    private static readonly CARDS_CENTER_Y: number = 860;
+    private static readonly TITLE_Y: number = 520;
+    private static readonly CARDS_CENTER_Y: number = 1100;
 
-    private static readonly CARD_WIDTH: number = 400;
+    private static readonly CARD_WIDTH: number = 320;
     private static readonly CARD_HEIGHT: number = 640;
-    private static readonly CARD_GAP: number = 48;
+    private static readonly CARD_GAP: number = 24;
     private static readonly CARD_RADIUS: number = 28;
     private static readonly CARD_COLOR: number = 0x1d1630;
     private static readonly CARD_BORDER_WIDTH: number = 6;
@@ -138,7 +138,7 @@ export default class LevelUpScene extends Scene {
             BonusIcons.getTextureKey(choice.id));
 
         const nameText: GameObjects.Text = this.add.text(0, top + LevelUpScene.NAME_Y, choice.name,
-            {fontSize: '46px', color: '#fff', fontFamily: 'future', align: 'center', wordWrap: {width: textWidth}})
+            {fontSize: '38px', color: '#fff', fontFamily: 'future', align: 'center', wordWrap: {width: textWidth}})
             .setOrigin(0.5, 0);
 
         const levelText: GameObjects.Text = this.add.text(0, top + LevelUpScene.LEVEL_Y, this.getLevelLabel(choice),

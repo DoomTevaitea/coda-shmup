@@ -15,7 +15,7 @@ export default class MainUIScene extends Scene {
     // Health bar: one red block per life, side by side, separated by thin dark lines
     private static readonly HEALTH_BAR_X: number = 64;
     private static readonly HEALTH_BAR_Y: number = 80;
-    private static readonly HEALTH_BLOCK_WIDTH: number = 88;
+    private static readonly HEALTH_BLOCK_WIDTH: number = 64;
     private static readonly HEALTH_BLOCK_HEIGHT: number = 44;
     private static readonly HEALTH_COLOR: number = 0xe53935;
     private static readonly HEALTH_LOST_COLOR: number = 0x3a1414;
@@ -25,7 +25,7 @@ export default class MainUIScene extends Scene {
     private static readonly HEALTH_BORDER_WIDTH: number = 4;
     // Nitro bar, under the health bar once the nitro is unlocked
     private static readonly NITRO_BAR_GAP: number = 14;
-    private static readonly NITRO_BAR_WIDTH: number = 264;
+    private static readonly NITRO_BAR_WIDTH: number = 192;
     private static readonly NITRO_BAR_HEIGHT: number = 18;
     private static readonly NITRO_COLOR: number = 0x4dd0e1;
     // Shown while the bar refills after running dry: the nitro can't be used yet
@@ -103,7 +103,7 @@ export default class MainUIScene extends Scene {
         if (this.registry.has(RegistryConstants.Keys.PLAYER_SCORE))
             scoreStr = this.registry.get(RegistryConstants.Keys.PLAYER_SCORE).toString()
                 .padStart(GameConstants.MAX_SCORE_DIGITS, "0");
-        this._scoreText = this.add.bitmapText(this.scale.width - 64, 64, "future-bmp", scoreStr, 128)
+        this._scoreText = this.add.bitmapText(this.scale.width - 64, 64, "future-bmp", scoreStr, 96)
             .setOrigin(1, 0);
 
         // XP bar along the top edge of the screen, level written below the health and score
