@@ -58,7 +58,7 @@ export default class ProgressionManager extends Plugins.ScenePlugin {
         this._xp = 0;
         this._xpToNextLevel = this._data.xp.firstLevel;
         this._pendingLevelUps = 0;
-        this._bonusLevels = {zoom: 0, boost: 0, speed: 0, damage: 0, multishot: 0};
+        this._bonusLevels = {zoom: 0, boost: 0, speed: 0, damage: 0, multishot: 0, bulletSpeed: 0};
         this._lastBossMilestone = 0;
         this._bossAppearances = {miniBoss: 0, boss: 0};
         this._nitroUpgrades = {speed: 0, duration: 0};
@@ -149,6 +149,7 @@ export default class ProgressionManager extends Plugins.ScenePlugin {
             speed: valueOf('speed'),
             damage: valueOf('damage'),
             multishot: valueOf('multishot'),
+            bulletSpeed: valueOf('bulletSpeed'),
             nitro: this._bonusLevels.boost === 0 ? null : {
                 speedBonus: nitro.baseSpeedBonus + nitro.speedBonusPerUpgrade * this._nitroUpgrades.speed,
                 duration: nitro.baseDuration + nitro.durationPerUpgrade * this._nitroUpgrades.duration,

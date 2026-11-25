@@ -21,7 +21,7 @@ export default class Player extends Entity {
     private readonly _zqsdKeys: Record<'up' | 'left' | 'down' | 'right', Phaser.Input.Keyboard.Key>;
     private _playerData: PlayerData;
     private _playerShipData: PlayerShipData;
-    private _bonuses: PlayerBonuses = {zoom: 0, speed: 0, damage: 0, multishot: 0, nitro: null};
+    private _bonuses: PlayerBonuses = {zoom: 0, speed: 0, damage: 0, multishot: 0, bulletSpeed: 0, nitro: null};
     private _lastShotTime: number;
 
     constructor(scene: Scene, x: number, y: number) {
@@ -120,8 +120,10 @@ export default class Player extends Entity {
         this._bonuses = bonuses;
 
         const weapon = this.getComponent(Weapon);
-        if (weapon)
+        if (weapon) {
             weapon.damageBonus = bonuses.damage;
+            weapon.speedMultiplier = 1 + bonuses.bulletSpeed;
+        }
 
         this.getComponent(Booster)?.setStats(bonuses.nitro);
     }

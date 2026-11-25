@@ -10,6 +10,8 @@ export default class Weapon implements IComponent {
     public enabled: boolean = true;
     // Added to the damage of every bullet shot, e.g. from player upgrades
     public damageBonus: number = 0;
+    // Multiplies the speed of every bullet shot, e.g. from player upgrades
+    public speedMultiplier: number = 1;
 
     private readonly _bullets: Physics.Arcade.Group;
     private readonly _bulletData: BulletData;
@@ -57,7 +59,11 @@ export default class Weapon implements IComponent {
 
         const bullet: Bullet = this._bullets.get() as Bullet;
         if (bullet) {
-            const bulletData: BulletData = {...this._bulletData, damage: this._bulletData.damage + this.damageBonus};
+            const bulletData: BulletData = {
+                ...this._bulletData,
+                damage: this._bulletData.damage + this.damageBonus,
+                speed: this._bulletData.speed * this.speedMultiplier
+            };
 
             // Get the direction vector the bullet will follow
             const sourceForward: Phaser.Math.Vector2 = new Phaser.Math.Vector2(1, 0).rotate(angle);

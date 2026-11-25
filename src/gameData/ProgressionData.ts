@@ -1,4 +1,4 @@
-export type BonusId = 'zoom' | 'boost' | 'speed' | 'damage' | 'multishot';
+export type BonusId = 'zoom' | 'boost' | 'speed' | 'damage' | 'multishot' | 'bulletSpeed';
 // Everything that can be offered on level up: the upgrades, plus the life bonus
 export type ChoiceId = BonusId | 'health';
 
