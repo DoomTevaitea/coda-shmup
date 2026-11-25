@@ -11,5 +11,9 @@ export default class GameConstants {
         GAME_OVER: "GameOverScene",
     } as const);
 
+    public static readonly DataKeys = Object.freeze({
+        SINE_ENEMY: "sineEnemy",
+    } as const);
+
     public static readonly MAX_SCORE_DIGITS: number = 6;
 }
