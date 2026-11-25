@@ -12,6 +12,8 @@ export default class GameConstants {
         BOSS_DEFEATED_EVENT: "bossDefeated",
         // Emitted on the game scene events by a boss calling help: enemy data key, count, x, y
         BOSS_SUMMON_EVENT: "bossSummon",
+        // Emitted on the game events a few times per second with a MinimapSnapshot, for the UI minimap
+        MINIMAP_UPDATE_EVENT: "minimapUpdate",
     } as const);
 
     public static readonly SceneKeys = Object.freeze({

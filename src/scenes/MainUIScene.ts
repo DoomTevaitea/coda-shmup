@@ -5,6 +5,9 @@ import Boss from "../entities/Boss.ts";
 import Booster from "../components/Booster.ts";
 import GameConstants from "../GameConstants.ts";
 import RegistryConstants from "../RegistryConstants.ts";
+import Minimap from "../ui/Minimap.ts";
+import type {MinimapSnapshot} from "../gameData/MinimapData.ts";
+import type {WorldData} from "../gameData/WorldData.ts";
 
 export default class MainUIScene extends Scene {
     private static readonly XP_BAR_HEIGHT: number = 16;
@@ -33,7 +36,7 @@ export default class MainUIScene extends Scene {
     private static readonly NITRO_BACKGROUND_COLOR: number = 0x10262b;
     private static readonly NITRO_LABEL_GAP: number = 16;
     // Boss health bar, along the bottom of the screen during a boss fight
-    private static readonly BOSS_BAR_WIDTH: number = 1000;
+    private static readonly BOSS_BAR_WIDTH: number = 800;
     private static readonly BOSS_BAR_HEIGHT: number = 32;
     private static readonly BOSS_BAR_BOTTOM_MARGIN: number = 72;
     private static readonly BOSS_BAR_BACKGROUND_COLOR: number = 0x2a0f14;
@@ -55,6 +58,7 @@ export default class MainUIScene extends Scene {
     // Regular text: the bitmap font only has digits and "x"
     private _levelText: GameObjects.Text;
     private _xpBar: GameObjects.Graphics;
+    private _minimap: Minimap | undefined;
 
     constructor() {
         super(GameConstants.SceneKeys.MAIN_UI);
@@ -68,8 +72,10 @@ export default class MainUIScene extends Scene {
         this.registry.events.on(RegistryConstants.Events.PLAYER_XP_CHANGE, this.updateLevel, this);
         this.game.events.on(GameConstants.Events.BOSS_SPAWNED_EVENT, this.onBossSpawned, this);
         this.game.events.on(GameConstants.Events.BOSS_DEFEATED_EVENT, this.hideBossBar, this);
+        this.game.events.on(GameConstants.Events.MINIMAP_UPDATE_EVENT, this.onMinimapUpdate, this);
 
         this.events.once(Scenes.Events.SHUTDOWN, () => {
+            this.game.events.off(GameConstants.Events.MINIMAP_UPDATE_EVENT, this.onMinimapUpdate, this);
             this.game.events.off(GameConstants.Events.BOSS_SPAWNED_EVENT, this.onBossSpawned, this);
             this.game.events.off(GameConstants.Events.BOSS_DEFEATED_EVENT, this.hideBossBar, this);
             this._boss?.getComponent(Health)?.off(Health.CHANGE_EVENT, this.updateBossBar, this);
@@ -93,6 +99,9 @@ export default class MainUIScene extends Scene {
             {fontSize: '24px', color: '#4dd0e1', fontFamily: 'future'})
             .setOrigin(0, 0.5).setVisible(false);
         this.updateNitroBar();
+
+        const worldData = this.cache.json.get(GameConstants.DataKeys.WORLD) as WorldData;
+        this._minimap = new Minimap(this, worldData.minimap);
 
         this._bossBar = this.add.graphics();
         this._bossNameText = this.add.text(this.scale.width / 2, 0, "",
@@ -139,6 +148,10 @@ export default class MainUIScene extends Scene {
             .fillRect(0, 0, this.scale.width, MainUIScene.XP_BAR_HEIGHT)
             .fillStyle(MainUIScene.XP_BAR_COLOR)
             .fillRect(0, 0, this.scale.width * fillRatio, MainUIScene.XP_BAR_HEIGHT);
+    }
+
+    private onMinimapUpdate(snapshot: MinimapSnapshot) {
+        this._minimap?.draw(snapshot);
     }
 
     private onBossSpawned(boss: Boss) {

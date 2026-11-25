@@ -1,3 +1,5 @@
+import {MinimapSettingsData} from "./MinimapData.ts";
+
 export type WorldData = {
     width: number;
     height: number;
@@ -21,4 +23,5 @@ export type WorldData = {
         // Enemies left this far behind the player are recycled
         despawnDistance: number;
     };
+    minimap: MinimapSettingsData;
 }
