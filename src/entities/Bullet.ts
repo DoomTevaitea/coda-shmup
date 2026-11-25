@@ -1,6 +1,8 @@
 import {BulletData} from "../gameData/BulletData.ts";
 
 export default class Bullet extends Phaser.GameObjects.Rectangle {
+    private static readonly OFFSCREEN_MARGIN: number = 512;
+
     private _arcadeBody: Phaser.Physics.Arcade.Body;
 
     private _damage: number = 0;
@@ -51,10 +53,11 @@ export default class Bullet extends Phaser.GameObjects.Rectangle {
     update(timeSinceLaunch: number, deltaTime: number) {
         super.update(timeSinceLaunch, deltaTime);
 
-        // Bullets can now fly in any direction: recycle them when they leave the screen on any side
-        const camera = this.scene.cameras.main;
-        if (this.x < -this.displayWidth || this.x > camera.width + this.displayWidth
-            || this.y < -this.displayHeight || this.y > camera.height + this.displayHeight) {
+        // Bullets can fly in any direction: recycle them when they get far enough from the visible part of the world.
+        // The margin keeps alive the bullets shot by enemies that are still a bit off screen
+        const view: Phaser.Geom.Rectangle = this.scene.cameras.main.worldView;
+        if (this.x < view.left - Bullet.OFFSCREEN_MARGIN || this.x > view.right + Bullet.OFFSCREEN_MARGIN
+            || this.y < view.top - Bullet.OFFSCREEN_MARGIN || this.y > view.bottom + Bullet.OFFSCREEN_MARGIN) {
             this.disable();
         }
     }

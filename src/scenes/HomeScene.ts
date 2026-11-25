@@ -35,8 +35,16 @@ export default class HomeScene extends Phaser.Scene {
         this.load.atlas('sprites', 'Spritesheet/gameSprites.png', 'Spritesheet/gameSprites.json');
         this.load.bitmapFont('future-bmp', 'Fonts/kenvector_future.png', 'Fonts/kenvector_future.xml');
         this.load.font('future', 'Fonts/kenvector_future.ttf');
-        this.load.json('playerShips', 'Data/playerShips.json');
-        this.load.json(GameConstants.DataKeys.SINE_ENEMY, 'Data/sineEnemy.json');
+        this.load.json(GameConstants.DataKeys.WORLD, 'Data/world.json');
+        this.load.json(GameConstants.DataKeys.PLAYER, 'Data/player.json');
+        this.load.json(GameConstants.DataKeys.PLAYER_SHIPS, 'Data/playerShips.json');
+        this.load.json(GameConstants.DataKeys.ENEMY, 'Data/enemy.json');
+        this.load.json(GameConstants.DataKeys.MINI_BOSS, 'Data/miniBoss.json');
+        this.load.json(GameConstants.DataKeys.BOSS, 'Data/boss.json');
+        for (const key of GameConstants.CONFIGURABLE_ENEMY_KEYS) {
+            this.load.json(key, `Data/${key}.json`);
+        }
+        this.load.json(GameConstants.DataKeys.PROGRESSION, 'Data/progression.json');
         this.load.audio('sfx_laser1', 'Sounds/sfx_laser1.ogg');
         this.load.audio('sfx_laser2', 'Sounds/sfx_laser2.ogg');
     }

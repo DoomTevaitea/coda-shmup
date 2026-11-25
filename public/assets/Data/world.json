@@ -1,0 +1,19 @@
+{
+  "width": 6000,
+  "height": 6000,
+  "border": {
+    "color": "#6c63ff",
+    "width": 8
+  },
+  "camera": {
+    "lerp": 0.1,
+    "zoom": 0.85
+  },
+  "background": {
+    "parallax": 0.5
+  },
+  "enemies": {
+    "spawnMargin": 200,
+    "despawnDistance": 4500
+  }
+}

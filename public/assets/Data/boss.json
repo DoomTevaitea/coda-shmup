@@ -1,0 +1,59 @@
+{
+  "name": "Overlord",
+  "texture": "ufoRed",
+  "tint": "#ff1744",
+  "scale": 5.5,
+  "health": 220,
+  "healthGrowthPerAppearance": 0.6,
+  "xp": 40,
+  "contactDamage": 2,
+  "zoomMultiplier": 0.6,
+  "movement": {
+    "speed": 0.2,
+    "turnSpeed": 45
+  },
+  "bullet": {
+    "width": 20,
+    "height": 20,
+    "color": "#ff5252",
+    "speed": 340,
+    "damage": 1
+  },
+  "attackDelay": 1100,
+  "attacks": [
+    {
+      "type": "spiral",
+      "waves": 8,
+      "bulletsPerWave": 14,
+      "waveDelay": 170,
+      "rotationPerWave": 9
+    },
+    {
+      "type": "laser",
+      "color": "#ff1744",
+      "warningDuration": 1000,
+      "fireDuration": 1600,
+      "width": 56,
+      "sweepAngle": 90
+    },
+    {
+      "type": "summon",
+      "enemyKey": "speedEnemy",
+      "count": 5
+    },
+    {
+      "type": "dash",
+      "warningDuration": 650,
+      "duration": 800,
+      "speed": 1.8
+    },
+    {
+      "type": "laser",
+      "color": "#ff1744",
+      "warningDuration": 800,
+      "fireDuration": 900,
+      "width": 40,
+      "sweepAngle": 0
+    }
+  ]
+}

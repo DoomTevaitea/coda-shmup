@@ -1,34 +1,31 @@
-import {BulletData} from "./BulletData.ts";
+import {BulletJsonData} from "./BulletData.ts";
+import {SpawnData} from "./SpawnData.ts";
 
-export type SineEnemyData = {
+export type ConfigurableEnemyData = {
     texture: string;
     tint: string;
     scale: number;
     health: number;
+    // XP given to the player when killed
+    xp: number;
     spawn: SpawnData;
     movement: SineMovementData;
     spreadShot: SpreadShotData;
 }
 
-export type SpawnData = {
-    delay: number;
-    maxActive: number;
-}
-
 export type SineMovementData = {
-    verticalSpeed: number;
+    speed: number;
+    // Degrees per second
+    turnSpeed: number;
+    // Sine weaving around the chase path (px), 0 to fly straight
     amplitude: number;
     period: number;
 }
 
 export type SpreadShotData = {
     delay: number;
+    // 0 for an enemy that never shoots
     bulletCount: number;
     spreadAngle: number;
     bullet: BulletJsonData;
-}
-
-// JSON has no hexadecimal literal: colors are written as "#rrggbb" strings
-export type BulletJsonData = Omit<BulletData, 'color'> & {
-    color: string;
 }

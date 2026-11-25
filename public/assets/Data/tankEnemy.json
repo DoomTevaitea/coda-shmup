@@ -1,0 +1,30 @@
+{
+  "texture": "ufoRed",
+  "tint": "#5c6b7a",
+  "scale": 2,
+  "health": 10,
+  "xp": 8,
+  "spawn": {
+    "delay": 9000,
+    "maxActive": 1,
+    "fromLevel": 5
+  },
+  "movement": {
+    "speed": 0.22,
+    "turnSpeed": 40,
+    "amplitude": 0,
+    "period": 1000
+  },
+  "spreadShot": {
+    "delay": 3500,
+    "bulletCount": 12,
+    "spreadAngle": 360,
+    "bullet": {
+      "width": 22,
+      "height": 22,
+      "color": "#ff5252",
+      "speed": 300,
+      "damage": 1
+    }
+  }
+}

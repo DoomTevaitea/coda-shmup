@@ -1,51 +1,49 @@
-import type {BulletData} from '../gameData/BulletData.ts';
-import type {SineEnemyData} from '../gameData/SineEnemyData.ts';
+import {toBulletData} from '../gameData/BulletData.ts';
+import type {ConfigurableEnemyData} from '../gameData/ConfigurableEnemyData.ts';
+import type {EnemyDifficulty} from '../gameData/ProgressionData.ts';
 import Entity from './Entity.ts';
 import Health from "../components/Health.ts";
 import Movement from "../components/Movement.ts";
 import SineMovement from "../components/SineMovement.ts";
+import Steering from "../components/Steering.ts";
 import Weapon from "../components/Weapon.ts";
 
-export default class SineEnemy extends Entity {
-    private static readonly FORWARD_ANGLE: number = 90;
+// An enemy entirely described by a JSON file: look, health, XP, spawn rate, chase speed, sine weaving and spread shot.
+// The same class gives the sine enemy, the fast one and the tank, only their JSON differ
+export default class ConfigurableEnemy extends Entity {
     private static readonly HIT_FLASH_COLOR: number = 0xffffff;
     private static readonly HIT_FLASH_DURATION: number = 50;
     private static readonly HIT_SLOWDOWN_FACTOR: number = 0.5;
 
-    private _data: SineEnemyData;
+    private _data: ConfigurableEnemyData;
+    private _target: Entity;
+    private _despawnDistance: number;
     private _tint: number;
     private _shootTimerConfig: Phaser.Types.Time.TimerEventConfig;
     private _shootTimer: Phaser.Time.TimerEvent;
 
-    // Furthest horizontal distance from the spawn point, used to keep the whole wave on screen
-    public get horizontalReach(): number {
-        return (this.getComponent(SineMovement)?.amplitude ?? 0) + this.displayWidth / 2;
-    }
-
-    public init(bulletsGroup: Phaser.Physics.Arcade.Group, data: SineEnemyData) {
+    public init(bulletsGroup: Phaser.Physics.Arcade.Group, data: ConfigurableEnemyData, target: Entity, despawnDistance: number) {
         this._data = data;
+        this._target = target;
+        this._despawnDistance = despawnDistance;
         this._tint = Phaser.Display.Color.HexStringToColor(data.tint).color;
 
-        const bulletData: BulletData = {
-            ...data.spreadShot.bullet,
-            color: Phaser.Display.Color.HexStringToColor(data.spreadShot.bullet.color).color
-        };
-
         this.addComponent(new Health(data.health, this));
-        this.addComponent(new Movement(data.movement.verticalSpeed));
+        this.addComponent(new Movement(data.movement.speed));
+        this.addComponent(new Steering(data.movement.turnSpeed));
         this.addComponent(new SineMovement(data.movement));
-        this.addComponent(new Weapon(bulletsGroup, bulletData));
+        this.addComponent(new Weapon(bulletsGroup, toBulletData(data.spreadShot.bullet)));
 
         // Listen once per enemy, not on every enable(): pooled enemies are reused many times
         const health = this.getComponent(Health);
         health?.on(Health.CHANGE_EVENT, () => {
-            this.setTintFill(SineEnemy.HIT_FLASH_COLOR);
+            this.setTintFill(ConfigurableEnemy.HIT_FLASH_COLOR);
 
             if (health.current == 0) {
                 this.disableBody();
             }
 
-            this.scene.time.delayedCall(SineEnemy.HIT_FLASH_DURATION, () => {
+            this.scene.time.delayedCall(ConfigurableEnemy.HIT_FLASH_DURATION, () => {
                 this.setTint(this._tint);
 
                 if (health.current == 0) {
@@ -54,7 +52,6 @@ export default class SineEnemy extends Entity {
             });
         });
 
-        this.angle = SineEnemy.FORWARD_ANGLE;
         this.setTexture('sprites', data.texture);
         this.setScale(data.scale);
         this.setTint(this._tint);
@@ -71,16 +68,21 @@ export default class SineEnemy extends Entity {
         this.arcadeBody.setCircle(this.width / 2);
     }
 
-    public enable(x: number, y: number) {
-        this.enableBody(true, x, y - this.displayHeight, true, true);
+    public enable(x: number, y: number, difficulty: EnemyDifficulty) {
+        this.enableBody(true, x, y, true, true);
+        this.rotation = Phaser.Math.Angle.Between(x, y, this._target.x, this._target.y);
         this._shootTimer.reset(this._shootTimerConfig);
         this.setTint(this._tint);
 
+        // The pooled enemy may come from an easier time of the game: apply the current difficulty
+        this.getComponent(Movement)?.setSpeed(this._data.movement.speed * difficulty.speedMultiplier);
+
         // Restore health, in case the enemy is reused from the pool, without emitting events
         const health = this.getComponent(Health);
+        health?.setMax(this._data.health + difficulty.healthBonus);
         health?.heal(health.max, false);
 
-        this.getComponent(SineMovement)?.reset(x);
+        this.getComponent(SineMovement)?.reset();
     }
 
     public disable() {
@@ -89,7 +91,11 @@ export default class SineEnemy extends Entity {
     }
 
     private shoot() {
+        // Some enemies only ram the player
         const spreadShot = this._data.spreadShot;
+        if (spreadShot.bulletCount <= 0)
+            return;
+
         this.getComponent(Weapon)?.shootSpread(this, spreadShot.bulletCount, spreadShot.spreadAngle);
         this.scene.sound.play('sfx_laser2');
     }
@@ -97,15 +103,16 @@ export default class SineEnemy extends Entity {
     preUpdate(timeSinceLaunch: number, deltaTime: number) {
         super.preUpdate(timeSinceLaunch, deltaTime);
 
-        // Destroy entities when out of screen
-        if (this.y > this.scene.cameras.main.height + this.displayHeight) {
+        // Recycle enemies left far behind
+        if (Phaser.Math.Distance.Between(this.x, this.y, this._target.x, this._target.y) > this._despawnDistance) {
             this.disable();
             return;
         }
 
-        // Slow down while flashing white after a hit
-        const moveDeltaTime: number = this.tintFill ? deltaTime * SineEnemy.HIT_SLOWDOWN_FACTOR : deltaTime;
-        this.getComponent(Movement)?.moveVertically(this, moveDeltaTime);
-        this.getComponent(SineMovement)?.moveHorizontally(this, moveDeltaTime);
+        // Chase the target while weaving sideways, slowed down while flashing white after a hit
+        const moveDeltaTime: number = this.tintFill ? deltaTime * ConfigurableEnemy.HIT_SLOWDOWN_FACTOR : deltaTime;
+        this.getComponent(Steering)?.turnToward(this, this._target.x, this._target.y, moveDeltaTime);
+        this.getComponent(Movement)?.moveForward(this, moveDeltaTime);
+        this.getComponent(SineMovement)?.moveSideways(this, moveDeltaTime);
     }
 }

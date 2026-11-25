@@ -1,0 +1,99 @@
+{
+  "xp": {
+    "firstLevel": 5,
+    "increasePerLevel": 5
+  },
+  "bonusChoices": 3,
+  "rarities": [
+    {
+      "name": "Common",
+      "color": "#b0b0b0",
+      "levels": 1,
+      "weight": 60,
+      "fromLevel": 1
+    },
+    {
+      "name": "Uncommon",
+      "color": "#7ae582",
+      "levels": 2,
+      "weight": 26,
+      "fromLevel": 1
+    },
+    {
+      "name": "Epic",
+      "color": "#b57cff",
+      "levels": 3,
+      "weight": 10,
+      "fromLevel": 8
+    },
+    {
+      "name": "Legendary",
+      "color": "#ffb627",
+      "levels": 4,
+      "weight": 4,
+      "fromLevel": 15
+    }
+  ],
+  "health": {
+    "name": "Repair",
+    "description": "+1 life per level. Lives above the max raise it",
+    "chance": 0.85,
+    "maxHealthCap": 8
+  },
+  "nitro": {
+    "baseSpeedBonus": 0.6,
+    "speedBonusPerUpgrade": 0.25,
+    "baseDuration": 1500,
+    "durationPerUpgrade": 700,
+    "rechargeDuration": 4000,
+    "minEnergyToRestart": 0.25,
+    "upgrades": {
+      "speed": "Faster nitro: +25% boost speed per level",
+      "duration": "Longer nitro: +0.7 s of boost per level"
+    }
+  },
+  "bonuses": {
+    "zoom": {
+      "name": "Wide view",
+      "description": "See 4% further per level",
+      "maxLevel": 8,
+      "valuePerLevel": 0.04
+    },
+    "boost": {
+      "name": "Nitro",
+      "description": "Hold SHIFT to boost, it empties the nitro bar",
+      "maxLevel": 5,
+      "valuePerLevel": 0
+    },
+    "speed": {
+      "name": "Engine",
+      "description": "+6% speed per level",
+      "maxLevel": 12,
+      "valuePerLevel": 0.06
+    },
+    "damage": {
+      "name": "Cannon",
+      "description": "+1 damage per level",
+      "maxLevel": 15,
+      "valuePerLevel": 1
+    },
+    "multishot": {
+      "name": "Multishot",
+      "description": "+1 bullet per shot per level",
+      "maxLevel": 10,
+      "valuePerLevel": 1
+    }
+  },
+  "difficultyPerLevel": {
+    "spawnDelayMultiplier": 0.95,
+    "minSpawnDelay": 250,
+    "maxActiveIncrease": 0.5,
+    "enemySpeedMultiplier": 1.03,
+    "maxEnemySpeedMultiplier": 2,
+    "enemyHealthIncreaseEvery": 2
+  },
+  "bosses": {
+    "miniBossEvery": 5,
+    "bossEvery": 10
+  }
+}
