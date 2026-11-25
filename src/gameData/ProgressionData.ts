@@ -1,4 +1,7 @@
-export type BonusId = 'zoom' | 'boost' | 'speed' | 'damage' | 'multishot' | 'bulletSpeed';
+import {EliteData} from "./EliteData.ts";
+
+export type BonusId = 'zoom' | 'boost' | 'speed' | 'damage' | 'multishot' | 'bulletSpeed'
+    | 'drones' | 'missiles' | 'piercingLaser' | 'shield';
 // Everything that can be offered on level up: the upgrades, plus the life bonus
 export type ChoiceId = BonusId | 'health';
 
@@ -15,6 +18,7 @@ export type ProgressionData = {
     rarities: RarityData[];
     health: HealthBonusData;
     nitro: NitroData;
+    elites: EliteData;
     bosses: BossScheduleData;
     bonuses: Record<BonusId, BonusData>;
     difficultyPerLevel: DifficultyData;

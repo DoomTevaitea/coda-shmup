@@ -1,9 +1,13 @@
 import {AUTO, Game, Scale, Types} from 'phaser';
+import ControlsScene from "./scenes/ControlsScene.ts";
 import GameOverScene from "./scenes/GameOverScene.ts";
 import HomeScene from "./scenes/HomeScene.ts";
+import LeaderboardScene from "./scenes/LeaderboardScene.ts";
+import LevelUpScene from "./scenes/LevelUpScene.ts";
 import MainGameScene from './scenes/MainGameScene.ts';
 import MainUIScene from "./scenes/MainUIScene.ts";
-import LevelUpScene from "./scenes/LevelUpScene.ts";
+import PauseScene from "./scenes/PauseScene.ts";
+import ShopScene from "./scenes/ShopScene.ts";
 import EntityManager from "./managers/EntityManager.ts";
 import ProgressionManager from "./managers/ProgressionManager.ts";
 import SaveManager from "./managers/SaveManager.ts";
@@ -19,6 +23,11 @@ const config: Types.Core.GameConfig = {
     scale: {
         mode: Scale.FIT,
         autoCenter: Scale.CENTER_BOTH
+    },
+    // Gamepads (PS5 DualSense...), and up to 3 fingers at once on touch screens: move, aim and nitro
+    input: {
+        gamepad: true,
+        activePointers: 3
     },
     physics: {
         default: 'arcade',
@@ -38,9 +47,13 @@ const config: Types.Core.GameConfig = {
     // fps: { forceSetTimeOut: true, target: 120 },
     scene: [
         HomeScene,
+        ShopScene,
+        LeaderboardScene,
+        ControlsScene,
         MainGameScene,
         MainUIScene,
         LevelUpScene,
+        PauseScene,
         GameOverScene
     ]
 };

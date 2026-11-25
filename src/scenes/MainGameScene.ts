@@ -1,15 +1,18 @@
-import {Scene, GameObjects} from 'phaser';
+import {Scene, GameObjects, Input} from 'phaser';
 import Health from "../components/Health.ts";
 import RegistryConstants from "../RegistryConstants.ts";
 import SaveManager from "../managers/SaveManager.ts";
-import SaveConstants from "../SaveConstants.ts";
 import EntityManager from "../managers/EntityManager.ts";
 import ProgressionManager from "../managers/ProgressionManager.ts";
+import MetaProgression from "../managers/MetaProgression.ts";
+import EffectsManager from "../effects/EffectsManager.ts";
 import GameConstants from "../GameConstants.ts";
+import Entity from "../entities/Entity.ts";
 import Player from "../entities/Player.ts";
 import Boss from "../entities/Boss.ts";
 import type {WorldData} from "../gameData/WorldData.ts";
-import type {BonusChoice, PlayerBonuses} from "../gameData/ProgressionData.ts";
+import type {BonusChoice, BossType, PlayerBonuses} from "../gameData/ProgressionData.ts";
+import type {PermanentBonuses, RunStats, ShopData} from "../gameData/ShopData.ts";
 import type {LevelUpSceneData} from "./LevelUpScene.ts";
 import type {MinimapPoint, MinimapSnapshot} from "../gameData/MinimapData.ts";
 
@@ -20,13 +23,21 @@ export default class MainGameScene extends Scene {
     private static readonly ZOOM_TRANSITION_DURATION: number = 1200;
     private static readonly BOSS_DEFEATED_SHAKE_DURATION: number = 600;
     private static readonly BOSS_DEFEATED_SHAKE_INTENSITY: number = 0.03;
+    // Time left to watch the player explosion before the game over screen (ms)
+    private static readonly GAME_OVER_DELAY: number = 1000;
+    private static readonly PLAYER_EXPLOSION_SIZE: number = 300;
 
     private bg: GameObjects.TileSprite;
     private worldData: WorldData;
     private player: Player;
+    private effects: EffectsManager;
     // The boss currently fought, null between boss fights
     private boss: Boss | null = null;
+    private bossType: BossType | null = null;
     private planetPosition: MinimapPoint;
+    // What happened during this game, for the game over screen
+    private stats: Omit<RunStats, 'score' | 'level' | 'duration'>;
+    private startTime: number;
     private saveManager: SaveManager;
     private entityManager: EntityManager;
     private progressionManager: ProgressionManager;
@@ -41,6 +52,8 @@ export default class MainGameScene extends Scene {
             console.error('SaveManager plugin not found');
         }
         this.saveManager?.load();
+        const meta = new MetaProgression(this.saveManager, this.cache.json.get(GameConstants.DataKeys.SHOP) as ShopData);
+        const permanentBonuses: PermanentBonuses = meta.getPermanentBonuses();
 
         // The mouse aims the player turret: a crosshair is easier to aim with than an arrow
         this.input.setDefaultCursor('crosshair');
@@ -65,21 +78,17 @@ export default class MainGameScene extends Scene {
             console.error('EntityManager plugin not found');
         }
 
-        this.progressionManager.init();
+        this.effects = new EffectsManager(this);
+        this.stats = {kills: 0, miniBosses: 0, bosses: 0};
+        this.startTime = this.time.now;
+        this.progressionManager.init(permanentBonuses);
 
-        this.player = this.entityManager.initAndSpawnPlayer();
-        this.player.getComponent(Health)?.once(Health.DEATH_EVENT, () => {
-            // Ramming an enemy kills it and hurts the player at once: the kill may have just opened the level up screen.
-            // A dead player chooses nothing, close it
-            this.scene.stop(GameConstants.SceneKeys.LEVEL_UP);
-            this.scene.resume();
-
-            // Hide the player and let its explosion play before showing the game over screen
-            this.player.disableBody(true, true);
-            this.time.delayedCall(1000, this.endGame, [], this);
-        }, this);
+        this.player = this.entityManager.initAndSpawnPlayer(permanentBonuses.startHealth);
+        this.player.on(Player.HIT_EVENT, () => this.effects.flashPlayerHit());
+        this.player.getComponent(Health)?.once(Health.DEATH_EVENT, () => this.onPlayerDeath(), this);
 
         this.boss = null;
+        this.bossType = null;
         this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
         this.cameras.main.startFollow(this.player, true, this.worldData.camera.lerp, this.worldData.camera.lerp);
         this.applyBonuses();
@@ -95,26 +104,68 @@ export default class MainGameScene extends Scene {
             loop: true
         });
 
-        // Killing enemies gives XP, enough XP gives a level and a bonus to choose, some levels bring a boss
-        this.events.on(GameConstants.Events.ENEMY_KILLED_EVENT, this.onEnemyKilled, this);
-        this.game.events.on(GameConstants.Events.BONUS_CHOSEN_EVENT, this.onBonusChosen, this);
-        this.game.events.on(GameConstants.Events.BOSS_DEFEATED_EVENT, this.onBossDefeated, this);
-        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-            this.input.setDefaultCursor('default');
-            this.events.off(GameConstants.Events.ENEMY_KILLED_EVENT, this.onEnemyKilled, this);
-            this.game.events.off(GameConstants.Events.BONUS_CHOSEN_EVENT, this.onBonusChosen, this);
-            this.game.events.off(GameConstants.Events.BOSS_DEFEATED_EVENT, this.onBossDefeated, this);
-        });
-
-        if (this.input.keyboard) {
-            this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R).on('down', () => this.scene.restart());
-        } else {
-            console.error('No keyboard input');
-        }
+        this.listenToEvents();
+        this.listenToPauseInputs();
 
         this.registry.set(RegistryConstants.Keys.PLAYER_SCORE, 0);
 
         console.log("MainGameScene created");
+    }
+
+    private listenToEvents() {
+        // Killing enemies gives XP, enough XP gives a level and a bonus to choose, some levels bring a boss
+        this.events.on(GameConstants.Events.ENEMY_KILLED_EVENT, this.onEnemyKilled, this);
+        this.events.on(GameConstants.Events.DAMAGE_DEALT_EVENT, this.onDamageDealt, this);
+        this.events.on(GameConstants.Events.EXPLOSION_EVENT, this.onExplosion, this);
+        this.game.events.on(GameConstants.Events.BONUS_CHOSEN_EVENT, this.onBonusChosen, this);
+        this.game.events.on(GameConstants.Events.BOSS_DEFEATED_EVENT, this.onBossDefeated, this);
+        this.game.events.on(GameConstants.Events.PAUSE_REQUESTED_EVENT, this.openPauseMenu, this);
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            this.input.setDefaultCursor('default');
+            this.events.off(GameConstants.Events.ENEMY_KILLED_EVENT, this.onEnemyKilled, this);
+            this.events.off(GameConstants.Events.DAMAGE_DEALT_EVENT, this.onDamageDealt, this);
+            this.events.off(GameConstants.Events.EXPLOSION_EVENT, this.onExplosion, this);
+            this.game.events.off(GameConstants.Events.BONUS_CHOSEN_EVENT, this.onBonusChosen, this);
+            this.game.events.off(GameConstants.Events.BOSS_DEFEATED_EVENT, this.onBossDefeated, this);
+            this.game.events.off(GameConstants.Events.PAUSE_REQUESTED_EVENT, this.openPauseMenu, this);
+        });
+    }
+
+    // ESC, the gamepad OPTIONS button, or the touch pause button (through PAUSE_REQUESTED_EVENT)
+    private listenToPauseInputs() {
+        this.input.keyboard?.on('keydown-ESC', (event: KeyboardEvent) => {
+            if (!event.repeat)
+                this.openPauseMenu();
+        });
+        this.input.gamepad?.on('down', (_pad: Input.Gamepad.Gamepad, button: Input.Gamepad.Button) => {
+            if (button.index === GameConstants.GamepadButtons.OPTIONS)
+                this.openPauseMenu();
+        });
+
+        if (this.input.keyboard) {
+            this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R).on('down', () => this.scene.restart());
+        }
+    }
+
+    private openPauseMenu() {
+        // Already paused by the level up screen, or the game is over
+        if (this.scene.isPaused() || !this.player.active)
+            return;
+
+        this.scene.pause();
+        this.scene.launch(GameConstants.SceneKeys.PAUSE);
+    }
+
+    private onPlayerDeath() {
+        // Ramming an enemy kills it and hurts the player at once: the kill may have just opened the level up screen.
+        // A dead player chooses nothing, close it
+        this.scene.stop(GameConstants.SceneKeys.LEVEL_UP);
+        this.scene.resume();
+
+        // Hide the player and let its explosion play before showing the game over screen
+        this.effects.explode(this.player.x, this.player.y, MainGameScene.PLAYER_EXPLOSION_SIZE);
+        this.player.disableBody(true, true);
+        this.time.delayedCall(MainGameScene.GAME_OVER_DELAY, this.endGame, [], this);
     }
 
     // Tells the UI where everything is. The game logic doesn't know how the UI draws it
@@ -133,9 +184,20 @@ export default class MainGameScene extends Scene {
         this.game.events.emit(GameConstants.Events.MINIMAP_UPDATE_EVENT, snapshot);
     }
 
-    private onEnemyKilled(xp: number) {
+    private onEnemyKilled(xp: number, enemy: Entity) {
+        this.stats.kills++;
+        this.effects.explode(enemy.x, enemy.y, enemy.displayWidth);
+
         if (this.progressionManager.addXp(xp) && !this.showNextLevelUp())
             this.trySpawnBoss();
+    }
+
+    private onDamageDealt(x: number, y: number, amount: number) {
+        this.effects.showDamage(x, y, amount);
+    }
+
+    private onExplosion(x: number, y: number, size: number) {
+        this.effects.explode(x, y, size);
     }
 
     // Pauses the game and shows the bonuses to choose from, for the next level up waiting for its bonus.
@@ -166,6 +228,7 @@ export default class MainGameScene extends Scene {
             return;
 
         this.boss = this.entityManager.spawnBoss(pendingBoss.type, pendingBoss.appearance);
+        this.bossType = pendingBoss.type;
         this.entityManager.setRegularSpawnsPaused(true);
         this.updateCameraZoom(true);
     }
@@ -174,7 +237,13 @@ export default class MainGameScene extends Scene {
         if (boss !== this.boss)
             return;
 
+        if (this.bossType === 'boss')
+            this.stats.bosses++;
+        else
+            this.stats.miniBosses++;
+
         this.boss = null;
+        this.bossType = null;
         this.entityManager.setRegularSpawnsPaused(false);
         this.updateCameraZoom(true);
         this.cameras.main.shake(MainGameScene.BOSS_DEFEATED_SHAKE_DURATION, MainGameScene.BOSS_DEFEATED_SHAKE_INTENSITY);
@@ -222,14 +291,15 @@ export default class MainGameScene extends Scene {
     }
 
     private endGame() {
-        const bestScore: number = Number(this.saveManager.getData(SaveConstants.Keys.PLAYER_BEST_SCORE) ?? 0);
-        const currentScore: number = Number(this.registry.get(RegistryConstants.Keys.PLAYER_SCORE) ?? 0);
-        if (currentScore > bestScore) {
-            this.saveManager.setData(SaveConstants.Keys.PLAYER_BEST_SCORE, currentScore);
-            console.log("New Best Score: " + currentScore);
-        }
+        const stats: RunStats = {
+            ...this.stats,
+            score: Number(this.registry.get(RegistryConstants.Keys.PLAYER_SCORE) ?? 0),
+            level: this.progressionManager.level,
+            // The scene clock stops during pauses and level ups
+            duration: this.time.now - this.startTime
+        };
 
-        this.scene.start(GameConstants.SceneKeys.GAME_OVER);
+        this.scene.start(GameConstants.SceneKeys.GAME_OVER, stats);
     }
 
     update() {

@@ -88,6 +88,30 @@
       "description": "+12% bullet speed per level",
       "maxLevel": 8,
       "valuePerLevel": 0.12
+    },
+    "drones": {
+      "name": "Drones",
+      "description": "Orbiting drones hurt what they touch. +1 drone per level",
+      "maxLevel": 6,
+      "valuePerLevel": 1
+    },
+    "missiles": {
+      "name": "Missiles",
+      "description": "Homing missiles fired at the nearest enemies",
+      "maxLevel": 6,
+      "valuePerLevel": 1
+    },
+    "piercingLaser": {
+      "name": "Ion Laser",
+      "description": "A beam that pierces every enemy where you aim",
+      "maxLevel": 6,
+      "valuePerLevel": 1
+    },
+    "shield": {
+      "name": "Shield",
+      "description": "Blocks a hit, then recharges",
+      "maxLevel": 6,
+      "valuePerLevel": 1
     }
   },
   "difficultyPerLevel": {
@@ -101,5 +125,24 @@
   "bosses": {
     "miniBossEvery": 5,
     "bossEvery": 10
+  },
+  "elites": {
+    "fromLevel": 4,
+    "chance": 0.08,
+    "scale": 1.6,
+    "healthMultiplier": 5,
+    "xpMultiplier": 6,
+    "color": "#ffc93c",
+    "shield": {
+      "hits": 4,
+      "color": "#4dd0e1"
+    },
+    "haste": {
+      "speedMultiplier": 1.6
+    },
+    "nova": {
+      "delay": 2600,
+      "bulletCount": 12
+    }
   }
 }

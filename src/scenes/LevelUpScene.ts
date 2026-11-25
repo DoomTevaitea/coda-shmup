@@ -1,4 +1,4 @@
-import {GameObjects, Scene} from "phaser";
+import {GameObjects, Input, Scene} from "phaser";
 import GameConstants from "../GameConstants.ts";
 import BonusIcons from "../utils/BonusIcons.ts";
 import type {BonusChoice} from "../gameData/ProgressionData.ts";
@@ -51,8 +51,14 @@ export default class LevelUpScene extends Scene {
     private static readonly LEGENDARY_LEVELS: number = 4;
     private static readonly LEGENDARY_PULSE_DURATION: number = 600;
 
+    private static readonly STICK_THRESHOLD: number = 0.5;
+    private static readonly STICK_REPEAT_DELAY: number = 250;
+
     private _choices: BonusChoice[];
     private _cards: GameObjects.Container[] = [];
+    // Card focused with the keyboard or gamepad, -1 before the first press
+    private _focusIndex: number = -1;
+    private _hasChosen: boolean = false;
 
     constructor() {
         super(GameConstants.SceneKeys.LEVEL_UP);
@@ -62,6 +68,8 @@ export default class LevelUpScene extends Scene {
     init(data: LevelUpSceneData) {
         this._choices = data.choices;
         this._cards = [];
+        this._focusIndex = -1;
+        this._hasChosen = false;
     }
 
     // noinspection JSUnusedGlobalSymbols
@@ -90,7 +98,63 @@ export default class LevelUpScene extends Scene {
             this._cards.push(card);
         });
 
+        this.listenToNavigation();
         this.scene.bringToTop();
+    }
+
+    // Keyboard (arrows / Q D + ENTER or SPACE) and gamepad (D-pad or left stick + cross) choose a card too
+    private listenToNavigation() {
+        this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+            if (event.repeat)
+                return;
+
+            if (event.code === 'ArrowLeft' || event.code === 'KeyA')
+                this.moveFocus(-1);
+            else if (event.code === 'ArrowRight' || event.code === 'KeyD')
+                this.moveFocus(1);
+            else if (event.code === 'Enter' || event.code === 'Space')
+                this.chooseFocused();
+        });
+
+        const buttons = GameConstants.GamepadButtons;
+        this.input.gamepad?.on('down', (_pad: Input.Gamepad.Gamepad, button: Input.Gamepad.Button) => {
+            if (button.index === buttons.DPAD_LEFT)
+                this.moveFocus(-1);
+            else if (button.index === buttons.DPAD_RIGHT)
+                this.moveFocus(1);
+            else if (button.index === buttons.CROSS)
+                this.chooseFocused();
+        });
+
+        let lastStickMoveTime: number = 0;
+        const pollStick = (time: number) => {
+            const stickX: number = this.input.gamepad?.pad1?.leftStick.x ?? 0;
+            if (Math.abs(stickX) >= LevelUpScene.STICK_THRESHOLD && time - lastStickMoveTime >= LevelUpScene.STICK_REPEAT_DELAY) {
+                lastStickMoveTime = time;
+                this.moveFocus(Math.sign(stickX));
+            }
+        };
+        // Scene events outlive the scene: remove the listener when the screen closes
+        this.events.on(Phaser.Scenes.Events.UPDATE, pollStick);
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.UPDATE, pollStick));
+    }
+
+    // The first press only shows which card is focused
+    private moveFocus(direction: number) {
+        const previous: GameObjects.Container | undefined = this._cards[this._focusIndex];
+        this._focusIndex = this._focusIndex < 0 ? 0 : Phaser.Math.Wrap(this._focusIndex + direction, 0, this._cards.length);
+
+        previous?.emit(Phaser.Input.Events.POINTER_OUT);
+        this._cards[this._focusIndex].emit(Phaser.Input.Events.POINTER_OVER);
+    }
+
+    private chooseFocused() {
+        if (this._focusIndex < 0) {
+            this.moveFocus(0);
+            return;
+        }
+
+        this.choose(this._cards[this._focusIndex], this._choices[this._focusIndex]);
     }
 
     private createCard(x: number, y: number, choice: BonusChoice): GameObjects.Container {
@@ -211,7 +275,11 @@ export default class LevelUpScene extends Scene {
     }
 
     private choose(chosenCard: GameObjects.Container, choice: BonusChoice) {
-        // Only one card can be picked
+        // Only one card can be picked, with any device
+        if (this._hasChosen)
+            return;
+
+        this._hasChosen = true;
         this._cards.forEach(card => card.disableInteractive());
 
         this.tweens.add({

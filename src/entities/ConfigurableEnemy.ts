@@ -7,6 +7,7 @@ import Movement from "../components/Movement.ts";
 import SineMovement from "../components/SineMovement.ts";
 import Steering from "../components/Steering.ts";
 import Weapon from "../components/Weapon.ts";
+import Elite from "../components/Elite.ts";
 
 // An enemy entirely described by a JSON file: look, health, XP, spawn rate, chase speed, sine weaving and spread shot.
 // The same class gives the sine enemy, the fast one and the tank, only their JSON differ
@@ -33,6 +34,7 @@ export default class ConfigurableEnemy extends Entity {
         this.addComponent(new Steering(data.movement.turnSpeed));
         this.addComponent(new SineMovement(data.movement));
         this.addComponent(new Weapon(bulletsGroup, toBulletData(data.spreadShot.bullet)));
+        this.addComponent(new Elite(this.scene));
 
         // Listen once per enemy, not on every enable(): pooled enemies are reused many times
         const health = this.getComponent(Health);
@@ -86,6 +88,7 @@ export default class ConfigurableEnemy extends Entity {
     }
 
     public disable() {
+        this.getComponent(Elite)?.hide();
         this.disableBody(true, true);
         this._shootTimer.paused = true;
     }
@@ -102,6 +105,7 @@ export default class ConfigurableEnemy extends Entity {
 
     preUpdate(timeSinceLaunch: number, deltaTime: number) {
         super.preUpdate(timeSinceLaunch, deltaTime);
+        this.getComponent(Elite)?.update(this, deltaTime);
 
         // Recycle enemies left far behind
         if (Phaser.Math.Distance.Between(this.x, this.y, this._target.x, this._target.y) > this._despawnDistance) {

@@ -1,7 +1,15 @@
 import {Loader} from "phaser";
 import GameConstants from "../GameConstants.ts";
+import SaveManager from "../managers/SaveManager.ts";
+import MetaProgression from "../managers/MetaProgression.ts";
+import MenuList from "../ui/MenuList.ts";
+import MenuScreen from "../ui/MenuScreen.ts";
+import type {ShopData} from "../gameData/ShopData.ts";
 
+// Main menu: play, permanent upgrades, leaderboard and controls
 export default class HomeScene extends Phaser.Scene {
+    private saveManager: SaveManager;
+
     constructor() {
         super(GameConstants.SceneKeys.HOME);
     }
@@ -45,25 +53,35 @@ export default class HomeScene extends Phaser.Scene {
             this.load.json(key, `Data/${key}.json`);
         }
         this.load.json(GameConstants.DataKeys.PROGRESSION, 'Data/progression.json');
+        this.load.json(GameConstants.DataKeys.WEAPONS, 'Data/weapons.json');
+        this.load.json(GameConstants.DataKeys.SHOP, 'Data/shop.json');
         this.load.audio('sfx_laser1', 'Sounds/sfx_laser1.ogg');
         this.load.audio('sfx_laser2', 'Sounds/sfx_laser2.ogg');
     }
 
+    // noinspection JSUnusedGlobalSymbols
     create() {
-        this.add.text(this.scale.width / 2, this.scale.width / 2, 'CODA SHMUP',
-            {fontSize: '72px', color: '#fff', fontFamily: 'future'}).setOrigin(0.5);
-        this.add.text(this.scale.width / 2, this.scale.width / 2 + 72, 'Press SPACE to start',
-            {fontSize: '32px', color: '#fff'}).setOrigin(0.5);
+        this.saveManager.load();
+        const meta = new MetaProgression(this.saveManager, this.cache.json.get(GameConstants.DataKeys.SHOP) as ShopData);
+        const height: number = this.scale.height;
 
-        // Ignore the OS key repeat: SPACE may still be held from the previous game
-        this.input.keyboard?.on('keydown-SPACE', (event: KeyboardEvent) => {
-            if (event.repeat)
-                return;
+        MenuScreen.addBackground(this);
+        MenuScreen.addTitle(this, 'CODA SHMUP', height * 0.2, 130);
+        MenuScreen.addText(this, 'Survive. Level up. Beat the bosses.', height * 0.28, 36);
+        MenuScreen.addText(this, `Best score  ${meta.bestScore}      Credits  ${meta.credits}`, height * 0.34, 36, MenuScreen.TITLE_COLOR);
 
-            this.scene.launch(GameConstants.SceneKeys.MAIN_UI);
-            this.scene.start(GameConstants.SceneKeys.MAIN_GAME);
-        });
+        new MenuList(this, this.scale.width / 2, height * 0.46, [
+            {label: 'PLAY', onSelect: () => this.startGame()},
+            {label: 'UPGRADES', onSelect: () => this.scene.start(GameConstants.SceneKeys.SHOP)},
+            {label: 'LEADERBOARD', onSelect: () => this.scene.start(GameConstants.SceneKeys.LEADERBOARD)},
+            {label: 'CONTROLS', onSelect: () => this.scene.start(GameConstants.SceneKeys.CONTROLS)},
+        ]);
 
-        console.log("HomeScene created");
+        MenuScreen.addText(this, 'Mouse, keyboard, PS5 controller or touch', height * 0.92, 28, '#999');
+    }
+
+    private startGame() {
+        this.scene.launch(GameConstants.SceneKeys.MAIN_UI);
+        this.scene.start(GameConstants.SceneKeys.MAIN_GAME);
     }
 }

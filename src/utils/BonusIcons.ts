@@ -17,6 +17,8 @@ export default class BonusIcons {
     private static readonly BULLET_CASE_COLOR: number = 0xb8860b;
     private static readonly HEART_COLOR: number = 0xe53935;
     private static readonly CANNON_COLOR: number = 0xc62828;
+    private static readonly DRONE_COLOR: number = 0x7ae582;
+    private static readonly LASER_COLOR: number = 0x4dd0e1;
     private static readonly CANNON_DARK_COLOR: number = 0x7f1d1d;
     private static readonly OUTLINE_COLOR: number = 0x000000;
 
@@ -33,6 +35,10 @@ export default class BonusIcons {
             damage: BonusIcons.drawCannon,
             multishot: BonusIcons.drawBullets,
             bulletSpeed: BonusIcons.drawFastBullet,
+            drones: BonusIcons.drawDrones,
+            missiles: BonusIcons.drawMissile,
+            piercingLaser: BonusIcons.drawLaser,
+            shield: BonusIcons.drawShield,
             health: BonusIcons.drawHeart,
         };
 
@@ -142,6 +148,43 @@ export default class BonusIcons {
             .fillStyle(BonusIcons.BULLET_COLOR)
             .fillRect(70, 54, 26, 30)
             .fillCircle(96, 69, 15);
+    }
+
+    // Drones: three green orbs around a ring
+    private static drawDrones(graphics: GameObjects.Graphics) {
+        graphics.lineStyle(4, BonusIcons.DRONE_COLOR, 0.5).strokeCircle(60, 70, 36);
+        for (const angle of [0, Phaser.Math.PI2 / 3, Phaser.Math.PI2 * 2 / 3]) {
+            const x: number = 60 + Math.cos(angle - Math.PI / 2) * 36;
+            const y: number = 70 + Math.sin(angle - Math.PI / 2) * 36;
+            graphics.fillStyle(BonusIcons.DRONE_COLOR).fillCircle(x, y, 13)
+                .fillStyle(0xffffff).fillCircle(x, y, 5);
+        }
+    }
+
+    // Missile: a rocket flying up right, with its flame
+    private static drawMissile(graphics: GameObjects.Graphics) {
+        graphics.fillStyle(BonusIcons.FLAME_COLOR).fillTriangle(14, 114, 30, 82, 46, 98)
+            .fillStyle(BonusIcons.FLAME_CORE_COLOR).fillTriangle(22, 106, 32, 88, 40, 96)
+            .fillStyle(BonusIcons.METAL_COLOR).fillTriangle(36, 92, 82, 46, 50, 106)
+            .fillTriangle(36, 92, 82, 46, 22, 78)
+            .fillStyle(BonusIcons.CANNON_COLOR).fillTriangle(82, 46, 100, 28, 90, 58)
+            .fillTriangle(82, 46, 100, 28, 70, 38);
+    }
+
+    // Ion laser: a cyan beam with a white core going across the icon
+    private static drawLaser(graphics: GameObjects.Graphics) {
+        graphics.lineStyle(22, BonusIcons.LASER_COLOR, 0.5).lineBetween(10, 110, 110, 34)
+            .lineStyle(12, BonusIcons.LASER_COLOR).lineBetween(10, 110, 110, 34)
+            .lineStyle(4, 0xffffff).lineBetween(10, 110, 110, 34)
+            .fillStyle(BonusIcons.DARK_METAL_COLOR).fillCircle(18, 104, 14);
+    }
+
+    // Shield: a cyan bubble with a highlight
+    private static drawShield(graphics: GameObjects.Graphics) {
+        graphics.fillStyle(BonusIcons.LASER_COLOR, 0.25).fillCircle(60, 70, 42)
+            .lineStyle(7, BonusIcons.LASER_COLOR).strokeCircle(60, 70, 42)
+            .lineStyle(5, 0xffffff, 0.8).beginPath()
+            .arc(60, 70, 30, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(260)).strokePath();
     }
 
     // Life: a heart, two circles on top of a triangle

@@ -28,13 +28,13 @@ export default class Turret implements IComponent {
         this._graphics.setVisible(visible);
     }
 
-    // Sticks the turret to the entity and turns its barrel toward the given world point
-    public aimAt(entity: Entity, x: number, y: number) {
+    // Sticks the turret to the entity and turns its barrel toward the given direction (radians)
+    public aimToward(entity: Entity, rotation: number) {
         this._graphics.setPosition(entity.x, entity.y);
 
         if (!this.enabled)
             return;
 
-        this._graphics.setRotation(Phaser.Math.Angle.Between(entity.x, entity.y, x, y));
+        this._graphics.setRotation(rotation);
     }
 }

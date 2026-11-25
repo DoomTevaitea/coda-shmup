@@ -1,0 +1,41 @@
+{
+  "credits": {
+    "perKill": 1,
+    "perLevel": 5,
+    "perMiniBoss": 25,
+    "perBoss": 60
+  },
+  "leaderboardSize": 10,
+  "upgrades": {
+    "hull": {
+      "name": "Hull plating",
+      "description": "+1 starting life",
+      "valuePerLevel": 1,
+      "costs": [60, 150, 300]
+    },
+    "thrusters": {
+      "name": "Thrusters",
+      "description": "+5% ship speed",
+      "valuePerLevel": 0.05,
+      "costs": [40, 80, 140, 220, 320]
+    },
+    "cannon": {
+      "name": "Heavy cannon",
+      "description": "+1 bullet damage",
+      "valuePerLevel": 1,
+      "costs": [200, 500]
+    },
+    "scholar": {
+      "name": "Scholar",
+      "description": "+10% XP",
+      "valuePerLevel": 0.1,
+      "costs": [50, 100, 170, 260, 380]
+    },
+    "nitroKit": {
+      "name": "Nitro kit",
+      "description": "Start with the nitro unlocked",
+      "valuePerLevel": 1,
+      "costs": [250]
+    }
+  }
+}
