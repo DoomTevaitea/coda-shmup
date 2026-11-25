@@ -7,6 +7,8 @@ import Movement from "../components/Movement.ts";
 import Weapon from "../components/Weapon.ts";
 
 export default class Player extends Entity {
+    private static readonly MS_PER_SECOND: number = 1000;
+
     private readonly _bulletData: BulletData = {
         width: 12,
         height: 4,
@@ -69,25 +71,17 @@ export default class Player extends Entity {
     preUpdate(timeSinceLaunch: number, deltaTime: number) {
         super.preUpdate(timeSinceLaunch, deltaTime);
 
-        // Press left or right arrow keys to move the player smoothly horizontally using deltaTime
-        if (this._cursorKeys.left.isDown) {
-            if (this._cursorKeys.shift.isDown) {
-                this.angle -= this._playerShipData.movementSpeed * deltaTime;
-            } else {
-                this.getComponent(Movement)?.moveHorizontally(this, -deltaTime);
-            }
-        } else if (this._cursorKeys.right.isDown) {
-            if (this._cursorKeys.shift.isDown) {
-                this.angle += this._playerShipData.movementSpeed * deltaTime;
-            } else {
-                this.getComponent(Movement)?.moveHorizontally(this, deltaTime);
-            }
-        }
-        // Stop player from going offscreen
-        this.x = Phaser.Math.Clamp(this.x, this.displayWidth / 2, this.scene.cameras.main.width - this.displayWidth / 2);
+        // The ship never stops: it keeps flying forward while steering toward the mouse cursor
+        this.steerTowardPointer(deltaTime);
+        this.getComponent(Movement)?.moveForward(this, deltaTime);
 
-        // Press space to shoot
-        if (this._cursorKeys.space.isDown) {
+        // Stop player from going offscreen
+        const camera = this.scene.cameras.main;
+        this.x = Phaser.Math.Clamp(this.x, this.displayWidth / 2, camera.width - this.displayWidth / 2);
+        this.y = Phaser.Math.Clamp(this.y, this.displayHeight / 2, camera.height - this.displayHeight / 2);
+
+        // Press space or the left mouse button to shoot
+        if (this._cursorKeys.space.isDown || this.scene.input.activePointer.leftButtonDown()) {
             if (timeSinceLaunch - this._lastShotTime > this._rateOfFire * 1000) {
                 this.getComponent(Weapon)?.shoot(this);
                 this.scene.sound.play('sfx_laser1');
@@ -95,5 +89,18 @@ export default class Player extends Entity {
                 this._lastShotTime = timeSinceLaunch;
             }
         }
+    }
+
+    // Turns toward the mouse cursor, limited by the ship turn speed so it flies in curves instead of snapping
+    private steerTowardPointer(deltaTime: number) {
+        const pointer: Phaser.Input.Pointer = this.scene.input.activePointer;
+
+        // Keep the current heading until the mouse has moved at least once
+        if (pointer.moveTime === 0)
+            return;
+
+        const targetRotation: number = Phaser.Math.Angle.Between(this.x, this.y, pointer.worldX, pointer.worldY);
+        const maxTurn: number = Phaser.Math.DegToRad(this._playerShipData.turnSpeed) * deltaTime / Player.MS_PER_SECOND;
+        this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, targetRotation, maxTurn);
     }
 }
