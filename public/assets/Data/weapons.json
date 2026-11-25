@@ -1,0 +1,41 @@
+{
+  "drones": {
+    "radius": 150,
+    "rotationSpeed": 180,
+    "size": 16,
+    "color": "#7ae582",
+    "damage": 2,
+    "damagePerLevel": 1,
+    "hitCooldown": 450
+  },
+  "missiles": {
+    "delay": 2400,
+    "delayPerLevel": -250,
+    "countEveryLevels": 2,
+    "damage": 4,
+    "damagePerLevel": 2,
+    "speed": 0.8,
+    "turnSpeed": 280,
+    "lifetime": 3000,
+    "hitRadius": 36,
+    "color": "#ff8c1a"
+  },
+  "piercingLaser": {
+    "delay": 3200,
+    "delayPerLevel": -350,
+    "damage": 3,
+    "damagePerLevel": 2,
+    "width": 20,
+    "widthPerLevel": 5,
+    "length": 1600,
+    "duration": 260,
+    "color": "#4dd0e1"
+  },
+  "shield": {
+    "rechargeDelay": 10000,
+    "rechargeDelayPerLevel": -1400,
+    "hits": 1,
+    "extraHitEveryLevels": 3,
+    "color": "#4dd0e1"
+  }
+}

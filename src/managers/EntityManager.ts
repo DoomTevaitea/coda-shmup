@@ -6,6 +6,8 @@ import Entity from "../entities/Entity.ts";
 import Player from "../entities/Player.ts";
 import ConfigurableEnemy from "../entities/ConfigurableEnemy.ts";
 import Boss from "../entities/Boss.ts";
+import Elite from "../components/Elite.ts";
+import type {ElitePower} from "../gameData/EliteData.ts";
 import type {BossData} from "../gameData/BossData.ts";
 import type {BossType} from "../gameData/ProgressionData.ts";
 import type {EnemyData} from "../gameData/EnemyData.ts";
@@ -61,14 +63,15 @@ export default class EntityManager extends Plugins.ScenePlugin {
         console.log("[EntityManager] Destroyed");
     }
 
-    public initAndSpawnPlayer(): Player {
+    // startHealthBonus: extra starting lives bought in the shop
+    public initAndSpawnPlayer(startHealthBonus: number): Player {
         this._playerBullets = this.scene!.physics.add.group(this.bulletGroupConfig);
         GroupUtils.populate(64, this._playerBullets);
 
         this._worldData = this.scene!.cache.json.get(GameConstants.DataKeys.WORLD) as WorldData;
 
         this._player = new Player(this.scene!, this._worldData.width / 2, this._worldData.height / 2);
-        this._player.init(this._playerBullets);
+        this._player.init(this._playerBullets, this, startHealthBonus);
 
         console.log("[EntityManager] Player spawned");
 
@@ -175,6 +178,7 @@ export default class EntityManager extends Plugins.ScenePlugin {
             const offset: Phaser.Math.Vector2 = new Phaser.Math.Vector2(1, 0)
                 .rotate(Phaser.Math.PI2 * i / count).scale(EntityManager.SUMMON_DISTANCE);
             enemy.enable(x + offset.x, y + offset.y, this._progression.getEnemyDifficulty());
+            enemy.getComponent(Elite)?.deactivate(enemy);
         }
     }
 
@@ -205,11 +209,40 @@ export default class EntityManager extends Plugins.ScenePlugin {
         });
     }
 
-    // Pooled enemies are created once: listen once to each of their deaths, for their whole life
+    // Pooled enemies are created once: listen once to each of their deaths, for their whole life.
+    // Elites give more XP than their regular version
     private listenToEnemyDeath(enemy: Entity, xp: number) {
         enemy.getComponent(Health)?.on(Health.DEATH_EVENT, () => {
-            this.scene!.events.emit(GameConstants.Events.ENEMY_KILLED_EVENT, xp);
+            const xpMultiplier: number = enemy.getComponent(Elite)?.xpMultiplier ?? 1;
+            this.scene!.events.emit(GameConstants.Events.ENEMY_KILLED_EVENT, xp * xpMultiplier, enemy);
         });
+    }
+
+    // Every way the player hurts enemies goes through here: bullets, drones, missiles, laser
+    public damageEnemy(enemy: Entity, amount: number) {
+        const health = enemy.getComponent(Health);
+        if (!enemy.active || !health || health.current <= 0)
+            return;
+
+        this.scene!.registry.inc(RegistryConstants.Keys.PLAYER_SCORE);
+
+        const isShielded: boolean = health.shieldHits > 0;
+        health.damage(amount);
+        if (!isShielded)
+            this.scene!.events.emit(GameConstants.Events.DAMAGE_DEALT_EVENT, enemy.x, enemy.y - enemy.displayHeight / 2, amount);
+    }
+
+    // Everything the player can hurt right now, bosses included
+    public getDamageableEnemies(): Entity[] {
+        const enemies: Entity[] = [];
+        for (const group of [this._enemies, ...this._configurableEnemyGroups.values(), ...Object.values(this._bossGroups)]) {
+            group.getMatching('active', true).forEach((enemy: Entity) => {
+                if (enemy.arcadeBody.enable)
+                    enemies.push(enemy);
+            });
+        }
+
+        return enemies;
     }
 
     public initGroupCollisions() {
@@ -217,10 +250,8 @@ export default class EntityManager extends Plugins.ScenePlugin {
         const bossGroups: Physics.Arcade.Group[] = Object.values(this._bossGroups);
 
         this.scene!.physics.add.overlap(this._playerBullets, [...enemyGroups, ...bossGroups], (bullet, enemy) => {
-            this.scene!.registry.inc(RegistryConstants.Keys.PLAYER_SCORE);
-
             (bullet as Bullet).disable();
-            (enemy as Entity).getComponent(Health)?.damage((bullet as Bullet).damage);
+            this.damageEnemy(enemy as Entity, (bullet as Bullet).damage);
         });
 
         this.scene!.physics.add.overlap(this._player, this._enemyBullets, (player, bullet) => {
@@ -269,6 +300,14 @@ export default class EntityManager extends Plugins.ScenePlugin {
 
         const spawnPosition: Phaser.Math.Vector2 = this.getSpawnPositionAroundPlayer();
         enemy.enable(spawnPosition.x, spawnPosition.y, this._progression.getEnemyDifficulty());
+
+        // Pooled enemies may have been elites in a previous life
+        const elite = enemy.getComponent(Elite);
+        const elitePower: ElitePower | null = this._progression.rollElite();
+        if (elitePower)
+            elite?.activate(enemy, this._progression.eliteData, elitePower);
+        else
+            elite?.deactivate(enemy);
 
         this.game!.events.emit(GameConstants.Events.ENEMY_SPAWNED_EVENT, enemy);
     }

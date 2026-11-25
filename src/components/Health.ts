@@ -6,6 +6,11 @@ export default class Health extends Phaser.Events.EventEmitter implements ICompo
 
     public static readonly CHANGE_EVENT: string = 'change';
     public static readonly DEATH_EVENT: string = 'death';
+    // A hit blocked by the shield, with the number of shield hits left
+    public static readonly SHIELD_HIT_EVENT: string = 'shieldHit';
+
+    // Each damage taken while this is above 0 removes one shield hit instead of health
+    public shieldHits: number = 0;
 
     private _current: number;
     private _max: number;
@@ -36,6 +41,14 @@ export default class Health extends Phaser.Events.EventEmitter implements ICompo
 
     public damage(amount: number, emitEvents: boolean = true): void {
         if (!this.enabled || amount <= 0) return;
+
+        if (this.shieldHits > 0) {
+            this.shieldHits--;
+            if (emitEvents)
+                this.emit(Health.SHIELD_HIT_EVENT, this.shieldHits);
+            return;
+        }
+
         this.adjust(-amount, emitEvents);
     }
 

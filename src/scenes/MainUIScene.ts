@@ -6,6 +6,7 @@ import Booster from "../components/Booster.ts";
 import GameConstants from "../GameConstants.ts";
 import RegistryConstants from "../RegistryConstants.ts";
 import Minimap from "../ui/Minimap.ts";
+import TouchControls from "../input/TouchControls.ts";
 import type {MinimapSnapshot} from "../gameData/MinimapData.ts";
 import type {WorldData} from "../gameData/WorldData.ts";
 
@@ -102,6 +103,10 @@ export default class MainUIScene extends Scene {
 
         const worldData = this.cache.json.get(GameConstants.DataKeys.WORLD) as WorldData;
         this._minimap = new Minimap(this, worldData.minimap);
+
+        // On phones and tablets: virtual joysticks, nitro and pause buttons
+        if (TouchControls.isSupported(this))
+            new TouchControls(this);
 
         this._bossBar = this.add.graphics();
         this._bossNameText = this.add.text(this.scale.width / 2, 0, "",

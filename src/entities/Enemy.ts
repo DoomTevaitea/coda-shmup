@@ -6,6 +6,7 @@ import Health from "../components/Health.ts";
 import Movement from "../components/Movement.ts";
 import Steering from "../components/Steering.ts";
 import Weapon from "../components/Weapon.ts";
+import Elite from "../components/Elite.ts";
 
 export default class Enemy extends Entity {
     private static readonly HIT_SLOWDOWN_FACTOR: number = 0.5;
@@ -25,6 +26,7 @@ export default class Enemy extends Entity {
         this.addComponent(new Movement(data.movement.speed));
         this.addComponent(new Steering(data.movement.turnSpeed));
         this.addComponent(new Weapon(bulletsGroup, toBulletData(data.shoot.bullet)));
+        this.addComponent(new Elite(this.scene));
 
         // Listen once per enemy, not on every enable(): pooled enemies are reused many times
         const health = this.getComponent(Health);
@@ -85,6 +87,7 @@ export default class Enemy extends Entity {
     }
 
     public disable() {
+        this.getComponent(Elite)?.hide();
         this.stop();
         this.removeAllListeners(Phaser.Animations.Events.ANIMATION_COMPLETE);
 
@@ -103,7 +106,8 @@ export default class Enemy extends Entity {
     }
 
     preUpdate(timeSinceLaunch: number, deltaTime: number) {
-        super.preUpdate(timeSinceLaunch, deltaTime)
+        super.preUpdate(timeSinceLaunch, deltaTime);
+        this.getComponent(Elite)?.update(this, deltaTime);
 
         // Recycle enemies left far behind
         if (Phaser.Math.Distance.Between(this.x, this.y, this._target.x, this._target.y) > this._despawnDistance) {

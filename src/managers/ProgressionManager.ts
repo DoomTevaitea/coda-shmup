@@ -12,6 +12,10 @@ import type {
     ProgressionData,
     RarityData
 } from "../gameData/ProgressionData.ts";
+import type {EliteData, ElitePower} from "../gameData/EliteData.ts";
+import type {PermanentBonuses} from "../gameData/ShopData.ts";
+
+const ELITE_POWERS: ElitePower[] = ['shield', 'haste', 'nova'];
 
 // Player XP, levels and bonuses. The current level, XP and XP goal are stored in the registry for the UI to display
 export default class ProgressionManager extends Plugins.ScenePlugin {
@@ -33,6 +37,7 @@ export default class ProgressionManager extends Plugins.ScenePlugin {
     private _bossAppearances: Record<BossType, number>;
     // Nitro levels spent on each stat, the first nitro level only unlocks it
     private _nitroUpgrades: Record<NitroStat, number>;
+    private _permanentBonuses: PermanentBonuses;
 
     public get level(): number {
         return this._level;
@@ -40,6 +45,19 @@ export default class ProgressionManager extends Plugins.ScenePlugin {
 
     public get hasPendingLevelUp(): boolean {
         return this._pendingLevelUps > 0;
+    }
+
+    // An elite power for a newly spawned enemy, or null for a regular one
+    public rollElite(): ElitePower | null {
+        const elites = this._data.elites;
+        if (this._level < elites.fromLevel || Math.random() >= elites.chance)
+            return null;
+
+        return Phaser.Utils.Array.GetRandom(ELITE_POWERS);
+    }
+
+    public get eliteData(): EliteData {
+        return this._data.elites;
     }
 
     public get maxHealthCap(): number {
@@ -51,14 +69,19 @@ export default class ProgressionManager extends Plugins.ScenePlugin {
     }
 
     // Must be called when a game starts: the plugin lives as long as its scene, so it is reused on restart
-    public init() {
+    // permanentBonuses: upgrades bought in the shop, they apply from the start of every game
+    public init(permanentBonuses: PermanentBonuses) {
         this._data = this.scene!.cache.json.get(GameConstants.DataKeys.PROGRESSION) as ProgressionData;
+        this._permanentBonuses = permanentBonuses;
 
         this._level = ProgressionManager.FIRST_LEVEL;
         this._xp = 0;
         this._xpToNextLevel = this._data.xp.firstLevel;
         this._pendingLevelUps = 0;
-        this._bonusLevels = {zoom: 0, boost: 0, speed: 0, damage: 0, multishot: 0, bulletSpeed: 0};
+        this._bonusLevels = {
+            zoom: 0, boost: permanentBonuses.hasNitro ? 1 : 0, speed: 0, damage: 0, multishot: 0, bulletSpeed: 0,
+            drones: 0, missiles: 0, piercingLaser: 0, shield: 0
+        };
         this._lastBossMilestone = 0;
         this._bossAppearances = {miniBoss: 0, boss: 0};
         this._nitroUpgrades = {speed: 0, duration: 0};
@@ -84,7 +107,7 @@ export default class ProgressionManager extends Plugins.ScenePlugin {
 
     // Returns true when this XP makes the player reach at least one new level
     public addXp(amount: number): boolean {
-        this._xp += amount;
+        this._xp += amount * this._permanentBonuses.xpMultiplier;
 
         let hasLeveledUp: boolean = false;
         while (this._xp >= this._xpToNextLevel) {
@@ -146,10 +169,14 @@ export default class ProgressionManager extends Plugins.ScenePlugin {
 
         return {
             zoom: valueOf('zoom'),
-            speed: valueOf('speed'),
-            damage: valueOf('damage'),
+            speed: valueOf('speed') + this._permanentBonuses.speed,
+            damage: valueOf('damage') + this._permanentBonuses.damage,
             multishot: valueOf('multishot'),
             bulletSpeed: valueOf('bulletSpeed'),
+            drones: valueOf('drones'),
+            missiles: valueOf('missiles'),
+            piercingLaser: valueOf('piercingLaser'),
+            shield: valueOf('shield'),
             nitro: this._bonusLevels.boost === 0 ? null : {
                 speedBonus: nitro.baseSpeedBonus + nitro.speedBonusPerUpgrade * this._nitroUpgrades.speed,
                 duration: nitro.baseDuration + nitro.durationPerUpgrade * this._nitroUpgrades.duration,
