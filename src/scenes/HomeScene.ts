@@ -66,7 +66,7 @@ export default class HomeScene extends Phaser.Scene {
         const height: number = this.scale.height;
 
         MenuScreen.addBackground(this);
-        MenuScreen.addTitle(this, 'CODA SHMUP', height * 0.2, 130);
+        MenuScreen.addTitle(this, 'NITRO SURVIVOR', height * 0.2, 120);
         MenuScreen.addText(this, 'Survive. Level up. Beat the bosses.', height * 0.28, 36);
         MenuScreen.addText(this, `Best score  ${meta.bestScore}      Credits  ${meta.credits}`, height * 0.34, 36, MenuScreen.TITLE_COLOR);
 
